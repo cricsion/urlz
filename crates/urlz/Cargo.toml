@@ -1,0 +1,29 @@
+[package]
+name = "urlz"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "URL compression codec implementing the urlz wire format: dictionary and Huffman segment encoding into compact base85 payloads."
+keywords = ["url", "compression", "huffman", "codec"]
+categories = ["encoding", "compression"]
+readme = "README.md"
+exclude = ["assets/corpus.txt"]
+
+[lib]
+doctest = false
+
+[dependencies]
+thiserror.workspace = true
+num-bigint.workspace = true
+num-traits.workspace = true
+bitstream-io.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+criterion = { workspace = true }
+
+[[bench]]
+name = "encode_decode"
+harness = false
