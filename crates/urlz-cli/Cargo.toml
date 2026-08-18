@@ -1,0 +1,24 @@
+[package]
+name = "urlz-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "CLI for the urlz URL compression codec: encode, decode, and Huffman codebook building."
+keywords = ["url", "compression", "cli"]
+categories = ["command-line-utilities", "encoding"]
+readme = "README.md"
+
+[[bin]]
+name = "urlz"
+path = "src/main.rs"
+
+[dependencies]
+urlz = { path = "../urlz", version = "0.1.0" }
+clap.workspace = true
+anyhow.workspace = true
+
+[dev-dependencies]
+assert_cmd.workspace = true
+predicates.workspace = true
