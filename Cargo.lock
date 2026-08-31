@@ -913,23 +913,16 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 name = "urlz"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "assert_cmd",
  "bitstream-io",
+ "clap",
  "criterion",
  "num-bigint",
  "num-traits",
+ "predicates",
  "proptest",
  "thiserror",
-]
-
-[[package]]
-name = "urlz-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "clap",
- "predicates",
- "urlz",
 ]
 
 [[package]]

@@ -25,9 +25,5 @@ jobs:
         run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: -D warnings
-      - name: Package audit (lib)
+      - name: Package audit
         run: cargo package -p urlz --list
-      # urlz-cli is NOT packaged here: its versioned dependency on `urlz`
-      # resolves against crates.io, which 404s until the lib is first
-      # published. Run `cargo package -p urlz-cli` manually after publishing
-      # urlz (see CHANGELOG / release checklist).

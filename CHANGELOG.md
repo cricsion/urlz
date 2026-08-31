@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.0] - 2026-08-23
+## [0.1.0] - 2026-08-31
 
 ### Added
 
@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
   - High-performance MSB-first bitstream serializer with LEB128 varint encoding.
   - Base85 payload framing.
   - Defensive security boundaries against hostile inputs (64 KiB payload cap, 64 segments/region, 4,096 symbols/segment, zero-panic guarantees).
-- **`urlz-cli` Binary Tool**:
+- **`urlz` Binary CLI**:
   - `encode`, `decode`, and `dict build` subcommands.
   - POSIX shell streaming integration with `xargs` for parallel batch processing.
 - **Embedded Canonical Huffman Codebook**:

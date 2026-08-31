@@ -1,7 +1,7 @@
 # urlz URL Compression Engine — Exhaustive System Architecture & Technical Deep Dive (v1.0.0)
 
 
-**Target System:** `url_compressor` (`urlz`, `urlz-cli`, and `xtask`)  
+**Target System:** `url_compressor` (`urlz` and `xtask`)  
 **Specification Version:** v1 (Normative Wire Format & Architecture)  
 **Repository Language:** Rust (Edition 2024, Workspace Resolver "3")  
 
@@ -27,7 +27,7 @@
    - 4.7 `encode.rs` — Bitstream Serializer & Base85 Wire Formatter
    - 4.8 `decode.rs` — Bitstream Deserializer & Resilient URL Synthesizer
    - 4.9 `error.rs` — Strongly-Typed Error Architecture
-   - 4.10 `urlz-cli/src/main.rs` — CLI Dispatcher & Ergonomics
+   - 4.10 `crates/urlz/src/main.rs` — CLI Dispatcher & Ergonomics
 5. [Module 5: End-to-End Execution Paths & Sequence Traces](#module-5-end-to-end-execution-paths--sequence-traces)
    - 5.1 Trace 1: Standard URL Encoding to Base85 Payload (`encode::encode`)
    - 5.2 Trace 2: Decoding & Validation (`decode::decode`)
@@ -42,7 +42,7 @@
 # Module 1: High-Level System Context & Problem Domain
 
 ## 1.1 Core Purpose & Value Proposition
-The **urlz URL Compression System** (`urlz` and `urlz-cli`) is an ultra-dense, deterministic, lossless URL compressor written in Rust.
+The **urlz URL Compression System** is an ultra-dense, deterministic, lossless URL compressor written in Rust.
 
 ### The Exact Problem It Solves
 Standard URLs are structurally redundant and verbosely formatted:
@@ -128,7 +128,7 @@ Standard URLs are structurally redundant and verbosely formatted:
       |          │ (argv / stdin)                              │ (read corpus file /  |
       |          ▼                                             │  write codebook.bin) |
       |  +-----------------------------------------------------+-------------------+  |
-      |  | crates/urlz-cli (CLI Entry Point)                                       |  |
+      |  | urlz CLI Binary (crates/urlz/src/main.rs)                           |  |
       |  |   - clap argument parser                                                |  |
       |  |   - anyhow error context                                                |  |
       |  +-------------------------+---------------------------+-------------------+  |
@@ -169,7 +169,7 @@ Standard URLs are structurally redundant and verbosely formatted:
 | **`bitstream-io`** | `2.x` | Bitstream Serializer / Deserializer | Provides verified Big-Endian (MSB-first) bit-level reading/writing over arbitrary sinks (`Vec<u8>`, byte slices). | Hand-rolled bit buffers, `bitflags`, `nom` | Zero-allocation wrapping over byte slices. Minimizes custom bit-shift bugs; small wrapper overhead abstracted inside `bitstream.rs`. |
 | **`num-bigint` & `num-traits`** | `0.4` / `0.2` | Arbitrary-Precision Radix Conversion | URLs produce variable-length bitstreams. `BigUint` enables lossless conversion to/from base-10, 26, 36, 62, 64, and 85. | `u128` (fixed limit), `rug` (GMP wrapper, requires C FFI), stack `U512` | Pure Rust, portable across embedded/WASM targets; clean arbitrary-precision radix division. |
 | **`thiserror`** | `2.x` | Domain Error Definition (`urlz`) | Generates standard, zero-overhead `std::error::Error` implementations with clean enum variants for library consumers. | `quick-error`, manual `Display`/`Error` impls | Pure compile-time macro expansion; zero runtime overhead. |
-| **`anyhow`** | `1.x` | Application Error Handling (`urlz-cli`) | Provides idiomatic context attachment (`.with_context()`) for CLI file operations and exit codes. | Custom CLI error enums, `eyre` | Fast CLI error propagation; not used in library core to preserve typed error guarantees. |
+| **`anyhow`** | `1.x` | Application Error Handling (CLI) | Provides idiomatic context attachment (`.with_context()`) for CLI file operations and exit codes. | Custom CLI error enums, `eyre` | Fast CLI error propagation; not used in library core to preserve typed error guarantees. |
 | **`clap`** | `4.x` (features: `["derive"]`) | Command-Line Interface Parser | Declarative CLI interface with auto-generated help, subcommand dispatch, and type validation. | `lexopt`, `argh`, `pico-args` | Ergonomic CLI interface with subcommands and flags. |
 | **`criterion`** | `0.5` | Micro-benchmarking Framework | Statistical benchmarking for encode/decode throughput, compression ratios, and adversarial payload safety. | `divan`, `bencher` | Robust statistical analysis (regression detection, variance filtering); generates output for `BENCH.md`. |
 | **`proptest`** | `1.x` | Property-Based Testing | Exhaustive property testing of base conversion roundtrips, URL parsing invariants, and fuzzing. | `quickcheck`, `cargo-fuzz` | Seamless integration with `cargo test`; generates randomized inputs to find edge-case failures. |
@@ -189,27 +189,23 @@ url_compressor/
 ├── ARCHITECTURE.md                            # Exhaustive wire spec & architecture deep dive (this document)
 ├── CHANGELOG.md                               # Versioned release changelog
 ├── crates/
-│   ├── urlz-cli/                              # Binary CLI Crate (`urlz`)
-│   │   ├── Cargo.toml                         # CLI crate manifest
-│   │   ├── src/
-│   │   │   └── main.rs                        # CLI entry point, argument parsing & subcommands
-│   │   └── tests/
-│   │       └── cli.rs                         # End-to-end integration tests
 │   ├── xtask/                                 # Workspace Tooling & Dataset Benchmarking
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       └── main.rs                        # Tranco benchmark runner and corpus generator
-│   └── urlz/                                  # Core Library Crate
-│       ├── Cargo.toml                         # Library manifest
+│   └── urlz/                                  # Core Library & CLI Crate
+│       ├── Cargo.toml                         # Library & Binary manifest
 │       ├── assets/
 │       │   ├── codebook.bin                   # Shipped 256-byte canonical Huffman codebook
 │       │   └── corpus.txt                     # Training URL corpus
 │       ├── benches/
 │       │   └── encode_decode.rs               # Criterion benchmark suites (throughput & ratios)
 │       ├── tests/
+│       │   ├── cli.rs                         # End-to-end CLI integration tests
 │       │   └── roundtrip.rs                   # Full URL round-trip integration tests
 │       └── src/
 │           ├── lib.rs                         # Crate root, module exports & public re-exports
+│           ├── main.rs                        # CLI entry point, argument parsing & subcommands
 │           ├── error.rs                       # Strongly-typed error enum definitions
 │           ├── alphabet.rs                    # Base85 charset, O(1) inverse tables, Base-N radix math
 │           ├── bitstream.rs                   # WriteBitStream, ReadBitStream, & Varint codec
@@ -227,7 +223,7 @@ url_compressor/
 
 ```
                                       +------------------------------------+
-                                      |            urlz-cli                |
+                                      |         urlz (CLI Binary)          |
                                       |  (CLI Command Dispatcher/Runner)   |
                                       +-----------------┬------------------+
                                                         │
@@ -249,19 +245,21 @@ url_compressor/
 |  |    urlparse.rs     | ---> |     segment.rs     | ---> |               huffman.rs                |  |
 |  |  Semantic Slicing  |      | Alphabet Selection |      |       Canonical Huffman Codebook        |  |
 |  +--------------------+      +--------------------+      +-----------------------------------------+  |
-|            │                           │                                      │                       |
-|            ▼                           ▼                                      ▼                       |
+|            │                          │                                       │                       |
+|            ▼                          ▼                                       ▼                       |
 |  +--------------------+      +--------------------+      +-----------------------------------------+  |
 |  |      dict.rs       |      |    bitstream.rs    |      |               alphabet.rs               |  |
-|  | Static Dictionaries|      | MSB Bit IO/Varints |      | Arbitrary-Precision Radix & O(1) Tables |  |
+|  | Static Codebooks   |      | WriteBitStream /   |      |        Radix Math & Inverse Tables      |  |
+|  | (TLDs/Hosts/Tokens)|      | ReadBitStream      |      |           (Base85 / Multi-Radix)        |  |
 |  +--------------------+      +--------------------+      +-----------------------------------------+  |
-|            │                           │                                      │                       |
-|            └───────────────────────────┼──────────────────────────────────────┘                       |
-|                                        ▼                                                              |
-|                         +------------------------------+                                              |
-|                         |      encode.rs / decode.rs   |                                              |
-|                         |    Bitstream Assembly/Parse  |                                              |
-|                         +------------------------------+                                              |
+|            │                          │                                       │                       |
+|            └──────────────────────────┼───────────────────────────────────────┘                       |
+|                                       ▼                                                               |
+|                        +-----------------------------+                                                |
+|                        |          encode.rs          |                                                |
+|                        | Bitstream Assembly (Header, |                                                |
+|                        | Host, TLD, Resources)       |                                                |
+|                        +-----------------------------+                                                |
 +-------------------------------------------------------------------------------------------------------+
 ```
 
@@ -286,7 +284,7 @@ url_compressor/
   └─► decode.rs    (decode, decode_bits)
 
 [ Delivery Mechanism / Presentation ]
-  └─► urlz-cli::main (Cli, Command, DictCommand)
+  └─► main.rs      (Cli, Command, DictCommand)
 ```
 
 ---
@@ -666,7 +664,7 @@ pub enum Error {
 
 ---
 
-## 4.10 `urlz-cli/src/main.rs` — CLI Dispatcher & Ergonomics
+## 4.10 `crates/urlz/src/main.rs` — CLI Dispatcher & Ergonomics
 
 ```
 urlz
@@ -686,7 +684,7 @@ urlz
 ```
 User Input: "https://www.google.com/search?q=rust"
   │
-  ├─► [1] urlz-cli::main::run()
+  ├─► [1] main::run()
   │     └─► clap matches Command::Encode { url }
   │
   ├─► [2] urlz::encode::encode(url)
@@ -785,7 +783,7 @@ User Input: Encoded Base85 Payload String S
 ```
 User Invocation: `urlz dict build corpus.txt --out dictionaries/v1`
   │
-  ├─► [1] urlz-cli::main::run()
+  ├─► [1] main::run()
   │     └─► Command::Dict { command: DictCommand::Build { corpus, out } }
   │
   ├─► [2] Read Corpus File: std::fs::read_to_string("corpus.txt")

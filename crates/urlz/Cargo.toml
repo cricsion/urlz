@@ -6,23 +6,31 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "URL compression codec implementing the urlz wire format: dictionary and Huffman segment encoding into compact base85 payloads."
-keywords = ["url", "compression", "huffman", "codec"]
-categories = ["encoding", "compression"]
+keywords = ["url", "compression", "huffman", "codec", "cli"]
+categories = ["encoding", "compression", "command-line-utilities"]
 readme = "README.md"
 exclude = ["assets/corpus.txt"]
 
 [lib]
 doctest = false
 
+[[bin]]
+name = "urlz"
+path = "src/main.rs"
+
 [dependencies]
 thiserror.workspace = true
 num-bigint.workspace = true
 num-traits.workspace = true
 bitstream-io.workspace = true
+clap = { workspace = true }
+anyhow = { workspace = true }
 
 [dev-dependencies]
 proptest.workspace = true
 criterion = { workspace = true }
+assert_cmd.workspace = true
+predicates.workspace = true
 
 [[bench]]
 name = "encode_decode"

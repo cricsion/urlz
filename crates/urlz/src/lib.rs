@@ -1,9 +1,7 @@
-//! urlz — a high-efficiency URL compression library.
+//! urlz — a high-efficiency URL compression library and CLI tool.
 //!
 //! urlz compresses URLs into compact payloads using a canonical Huffman
 //! code over a custom alphabet, backed by TLD/host dictionaries.
-//!
-//! This crate is the library core; the `urlz-cli` crate provides the CLI.
 //!
 //! # Examples
 //!

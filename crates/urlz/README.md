@@ -4,13 +4,49 @@
 [![Docs.rs](https://docs.rs/urlz/badge.svg)](https://docs.rs/urlz)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 
-High-efficiency, deterministic URL compression engine in Rust.
+High-efficiency, deterministic URL compression engine and CLI in Rust.
 
 `urlz` rewrites URLs into ultra-dense payloads by exploiting structural patterns: known hosts/TLDs become dictionary indices, boilerplate suffixes are elided, path/query segments are encoded into optimal radix alphabets, and canonical Huffman coding is applied when it saves bits on the wire.
 
 ---
 
-## Quick Example
+## Installation
+
+### As a Command-Line Tool
+```sh
+cargo install urlz                  # from crates.io
+cargo install --path crates/urlz    # or from local checkout
+```
+
+### As a Rust Library Dependency
+```toml
+[dependencies]
+urlz = "0.1.0"
+```
+
+---
+
+## CLI Usage
+
+```sh
+# 1. Encode a URL to a compact Base85 string
+$ urlz encode "https://github.com/rust-lang/rust"
+#`H(KM&4L`p!vEE0}0TnPfwO
+
+# 2. Decode a payload back to the original URL
+$ urlz decode '#`H(KM&4L`p!vEE0}0TnPfwO'
+https://github.com/rust-lang/rust
+
+# 3. High-throughput parallel batch compression via shell pipelines
+$ cat urls.txt | xargs -P 8 -n 500 -I {} urlz encode {} > compressed.txt
+
+# 4. Build custom 256-byte Huffman codebooks from your own access logs
+$ urlz dict build access_urls.txt --out ./dictionaries
+```
+
+---
+
+## Library Usage
 
 ```rust
 use urlz::{encode, decode, encode_to_bits, decode_bits};
@@ -18,11 +54,11 @@ use urlz::{encode, decode, encode_to_bits, decode_bits};
 fn main() -> Result<(), urlz::Error> {
     let url = "https://example.com/index.html";
 
-    // 1. Text mode: Compact Base85 string (~2.14x compression)
+    // 1. Text mode: Compact Base85 string
     let payload = encode(url)?;
     assert_eq!(decode(&payload)?, url);
 
-    // 2. Binary mode: Raw bitstream bytes for BLE, IoT, or packets
+    // 2. Binary mode: Raw bitstream bytes for BLE, IoT, or UDP packets
     let bits: Vec<u8> = encode_to_bits(url)?;
     assert_eq!(decode_bits(&bits)?, url);
 
@@ -54,11 +90,12 @@ fn main() -> Result<(), urlz::Error> {
 
 ---
 
-## Documentation & Tooling
+## Documentation & Recipes
 
 - **Repository & Architecture Deep Dive:** [github.com/cricsion/urlz](https://github.com/cricsion/urlz)
-- **CLI Binary:** [`urlz-cli`](https://crates.io/crates/urlz-cli) (`cargo install urlz-cli`)
 - **Specification:** [ARCHITECTURE.md](https://github.com/cricsion/urlz/blob/main/ARCHITECTURE.md)
+- **Practical User Guide & Recipes:** [`USAGE.md`](https://github.com/cricsion/urlz/blob/main/USAGE.md)
+- **Benchmark Suite & Comparisons:** [`BENCH.md`](https://github.com/cricsion/urlz/blob/main/BENCH.md)
 
 ## License
 

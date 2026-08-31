@@ -22,8 +22,8 @@ encodes to 30 chars vs 29). Structured URLs are where it pays off.
 Requires Rust 1.91+ (edition 2024).
 
 ```sh
-cargo install urlz-cli        # from crates.io (after publish)
-cargo install --path crates/urlz-cli   # or from a source checkout
+cargo install urlz                   # from crates.io (after publish)
+cargo install --path crates/urlz     # or from a source checkout
 ```
 
 Encode and decode:
@@ -125,8 +125,8 @@ cargo clippy --all-targets
 Workspace layout:
 
 ```
-crates/urlz       # codec library: parse, segment, huffman, bitstream
-crates/urlz-cli   # `urlz` CLI
+crates/urlz       # `urlz` codec library and CLI binary
+crates/xtask      # dataset and corpus benchmark harnesses
 ```
 
 Further reading: [USAGE.md](USAGE.md) (user guide & recipes),

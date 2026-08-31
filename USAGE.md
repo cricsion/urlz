@@ -1,6 +1,6 @@
 # urlz: User Guide & Developer Documentation
 
-Comprehensive guide for using the `urlz` compression library and `urlz-cli` command-line tool.
+Comprehensive guide for using the `urlz` compression library and command-line tool.
 
 
 ## Table of Contents
@@ -49,13 +49,13 @@ cargo add urlz
 Install the `urlz` command-line tool globally:
 
 ```sh
-cargo install urlz-cli
+cargo install urlz
 ```
 
 Or build from source in a cloned workspace:
 
 ```sh
-cargo install --path crates/urlz-cli
+cargo install --path crates/urlz
 ```
 
 ---
