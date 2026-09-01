@@ -21,7 +21,7 @@ cargo install --path crates/urlz    # or from local checkout
 ### As a Rust Library Dependency
 ```toml
 [dependencies]
-urlz = "0.1.0"
+urlz = "0.1.1"
 ```
 
 ---

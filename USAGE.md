@@ -35,7 +35,7 @@ Add `urlz` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-urlz = "0.1.0"
+urlz = "0.1.1"
 ```
 
 Or using `cargo add`:

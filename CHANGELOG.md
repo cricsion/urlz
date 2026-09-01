@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-09-01
+
+### Fixed
+
+- Package CLI binary target (`src/main.rs`) properly in published crate to support `cargo install urlz`.
+
 ## [0.1.0] - 2026-08-31
 
 ### Added
@@ -25,4 +31,5 @@ All notable changes to this project will be documented in this file.
   - Developer integration guide with Axum shortener, BLE beacon, and Rayon recipes ([`USAGE.md`](USAGE.md)).
   - Empirical compression benchmarks vs DEFLATE, zlib, and gzip ([`BENCH.md`](BENCH.md)).
 
+[0.1.1]: https://github.com/cricsion/urlz/releases/tag/v0.1.1
 [0.1.0]: https://github.com/cricsion/urlz/releases/tag/v0.1.0
