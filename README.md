@@ -22,7 +22,7 @@ encodes to 30 chars vs 29). Structured URLs are where it pays off.
 Requires Rust 1.91+ (edition 2024).
 
 ```sh
-cargo install urlz                   # from crates.io (after publish)
+cargo install urlz                   # from crates.io
 cargo install --path crates/urlz     # or from a source checkout
 ```
 
@@ -136,4 +136,3 @@ Further reading: [USAGE.md](USAGE.md) (user guide & recipes),
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
-
