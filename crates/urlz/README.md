@@ -73,9 +73,10 @@ fn main() -> Result<(), urlz::Error> {
 | Original URL | Length | `urlz` Base85 | Ratio |
 |---|:---:|:---:|:---:|
 | `https://example.com/index.html` | 30 chars | **14 chars** | **2.14×** |
-| `https://www.google.com/search?q=hello+world` | 43 chars | **28 chars** | **1.54×** |
+| `https://example.com/search?q=rust&page=2&sort=desc` | 51 chars | **30 chars** | **1.70×** |
+| `https://www.google.com/search?q=hello+world` | 43 chars | **27 chars** | **1.59×** |
+| `https://example.com` | 19 chars | **12 chars** | **1.58×** |
 | `https://github.com/rust-lang/rust` | 33 chars | **24 chars** | **1.38×** |
-| `https://example.com/search?q=rust&page=2&sort=desc` | 51 chars | **37 chars** | **1.38×** |
 
 *Note: Encoded payloads are not guaranteed shorter on highly irregular or random strings; structured URLs benefit most.*
 
@@ -83,7 +84,7 @@ fn main() -> Result<(), urlz::Error> {
 
 ## Key Features
 
-- ⚡ **High Throughput:** Encodes over **118,000 URLs/sec** with sub-9µs mean latency.
+- ⚡ **High Throughput:** Encodes over **370,000+ URLs/sec** with sub-3µs mean latency.
 - 🛡️ **Hostile Input Resilience:** Strict memory boundaries (64 KiB payload cap, 64 segments/region). Rejects invalid padding, varint overflows, and bad indices as typed errors — **never panics**.
 - 🗜️ **Adaptive Multi-Base & Huffman:** Automatically selects between 8 character sets (Base10, Base26, Base36, Base62, Base64url, Canonical Huffman, Raw UTF-8) to minimize wire size.
 - 🌐 **Stateless & Offline:** Zero centralized databases, zero lookups, and no network dependencies.

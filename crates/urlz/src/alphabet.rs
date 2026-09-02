@@ -124,6 +124,14 @@ pub fn char_index(c: u8, alphabet: &[u8]) -> Option<usize> {
 pub fn to_base(v: &BigUint, alphabet: &[u8]) -> String {
     debug_assert!(!alphabet.is_empty(), "to_base: alphabet must not be empty");
     let base = alphabet.len();
+    if (2..=256).contains(&base) {
+        let digits = v.to_radix_be(base as u32);
+        let symbols: Vec<u8> = digits
+            .into_iter()
+            .map(|digit| alphabet[digit as usize])
+            .collect();
+        return String::from_utf8(symbols).expect("alphabet symbols are valid ASCII");
+    }
     if v.is_zero() {
         return String::from(alphabet[0] as char);
     }
@@ -155,6 +163,23 @@ pub fn from_base(s: &str, alphabet: &[u8]) -> Result<BigUint, Error> {
         !alphabet.is_empty(),
         "from_base: alphabet must not be empty"
     );
+    if (2..=256).contains(&alphabet.len()) {
+        let mut digits = Vec::with_capacity(s.len());
+        for c in s.chars() {
+            let idx = if c.is_ascii() {
+                char_index(c as u8, alphabet)
+            } else {
+                None
+            };
+            digits.push(idx.ok_or(Error::UnsupportedCharacter(c))? as u8);
+        }
+        return BigUint::from_radix_be(&digits, alphabet.len() as u32).ok_or_else(|| {
+            Error::InvalidPayload {
+                reason: "alphabet digit is out of range".to_string(),
+            }
+        });
+    }
+
     let base = BigUint::from(alphabet.len());
     let mut result = BigUint::zero();
     for c in s.chars() {

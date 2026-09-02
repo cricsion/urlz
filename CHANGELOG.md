@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Performance Optimizations**:
+  - Accelerated radix base conversion in `alphabet::to_base` and `alphabet::from_base` using native `BigUint` radix operations (`to_radix_be` and `from_radix_be`).
+  - Optimized `write_biguint_bits` bitstream packing with chunked 64-bit integer writes.
+  - Increased overall throughput from ~118,000 URLs/s to **370,000+ URLs/s** and reduced mean latency from 8.44 µs to **2.69 µs**.
+
 ## [0.1.1] - 2026-09-01
 
 ### Fixed

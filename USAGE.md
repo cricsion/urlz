@@ -67,10 +67,10 @@ cargo install --path crates/urlz
 ```sh
 # Encode a URL to compact Base85
 $ urlz encode "https://github.com/rust-lang/rust"
-bB;p`O;%0@1j1m)T=Q3s9X!
+#`H(KM&4L`p!vEE0}0TnPfwO
 
 # Decode a payload back to the original URL
-$ urlz decode "bB;p`O;%0@1j1m)T=Q3s9X!"
+$ urlz decode '#`H(KM&4L`p!vEE0}0TnPfwO'
 https://github.com/rust-lang/rust
 ```
 

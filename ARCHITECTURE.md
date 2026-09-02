@@ -64,7 +64,7 @@ Standard URLs are structurally redundant and verbosely formatted:
 - **Non-Functional Requirements:**
   - **Memory Safety & Zero-Panic Guarantee:** Strict validation on all variable-length inputs (varints, bit lengths, symbol counts); malformed or adversarial payloads must return typed errors (`Error`) without crashing or panicking.
   - **Zero-Allocation Hot Paths:** Streaming bit-level encoding/decoding without intermediate heap bloat.
-  - **High Throughput:** 140,000+ URLs/sec single-core encoding performance with sub-7µs mean latency.
+  - **High Throughput:** 370,000+ URLs/sec single-core encoding performance with sub-3µs mean latency.
   - **Bounded Resource Limits:** Hard caps preventing decompression bombs (Payload $\le 65,536$ bytes, Segments/Region $\le 64$, Symbols/Segment $\le 4,096$).
 
 ---
@@ -866,8 +866,8 @@ Attacker Input: Truncated / Bit-Flipped Payload String S
 ### Macro-Benchmarks across Tranco Datasets:
 | Metric | Value |
 | :--- | :--- |
-| **Throughput** | **143,844 URLs/second** |
-| **Mean Latency** | **6.95 µs / URL** |
+| **Throughput** | **371,621 URLs/second** |
+| **Mean Latency** | **2.69 µs / URL** |
 | **Encode Errors** | **0 (100% lossless fidelity)** |
 | **Average Compression** | **1.21× (17.5% wire size reduction)** |
 

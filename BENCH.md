@@ -42,8 +42,8 @@ host, and a search URL.
 | https://example.com/page#section-2 | 34 | 30 | **1.133** |
 | https://example.com:8080/path | 29 | 31 | 0.935 |
 | https://example.com/index.html | 30 | 14 | **2.143** |
-| https://example.com | 19 | 13 | **1.462** |
-| https://www.google.com/search?q=hello+world | 43 | **28** | **1.536** |
+| https://example.com | 19 | 12 | **1.583** |
+| https://www.google.com/search?q=hello+world | 43 | **27** | **1.593** |
 
 Notes:
 
@@ -67,10 +67,10 @@ cargo run --release -p xtask -- bench-tranco top10milliondomains.csv 10000000
 | **Unique Domains** | 889,388 | **8,743,106** |
 | **Total URLs Encoded** | 1,000,000 | **10,000,000** |
 | **Encode Errors** | **0 (100% lossless)** | **0 (100% lossless)** |
-| **Wall Clock Time** | **8.44 s** | **93.47 s (~1.5 min)** |
-| **Throughput** | **118,475 URLs/s** | **106,983 URLs/s** |
-| **Mean Latency** | **8.44 µs/url** | **9.35 µs/url** |
-| **P50 / P90 / P99 Latency** | **7 / 15 / 18 µs** | **7 / 16 / 20 µs** |
+| **Wall Clock Time** | **2.69 s** | **26.17 s (~26 s)** |
+| **Throughput** | **371,621 URLs/s** | **382,050 URLs/s** |
+| **Mean Latency** | **2.69 µs/url** | **2.62 µs/url** |
+| **P50 / P90 / P99 Latency** | **2 / 3 / 4 µs** | **2 / 3 / 3 µs** |
 | **Total Source Size** | 85.65 MB (85,651,178 chars) | **869.98 MB (869,977,173 chars)** |
 | **Total Encoded Size** | 70.66 MB (70,658,513 chars) | **719.52 MB (719,521,068 chars)** |
 | **Net Storage Saved** | **14.99 MB saved** | **150.46 MB saved** |

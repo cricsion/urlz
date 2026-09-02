@@ -261,37 +261,27 @@ fn write_segment(
 }
 
 /// Write exactly `bit_len` bits of `value`, MSB-first, skipping the leading
-/// zero bits of the minimal big-endian byte representation.
+/// zero bits of the minimal big-endian byte representation. The first partial
+/// byte is written separately, followed by chunks of up to 64 bits.
 fn write_biguint_bits(bs: &mut WriteBitStream, value: &BigUint, bit_len: u32) -> Result<(), Error> {
     if bit_len == 0 {
         return Ok(());
     }
     let bytes = value.to_bytes_be();
-    let total_bits = (bytes.len() as u32) * 8;
-    let skip = total_bits - bit_len;
-    let mut acc: u64 = 0;
-    let mut acc_len: u32 = 0;
-    let mut idx: u32 = 0;
-    'bits: for byte in &bytes {
-        for i in (0..8).rev() {
-            if idx >= skip {
-                let bit = ((byte >> i) & 1) as u64;
-                acc = (acc << 1) | bit;
-                acc_len += 1;
-                if acc_len == 64 {
-                    bs.write_bits(acc, 64)?;
-                    acc = 0;
-                    acc_len = 0;
-                }
-            }
-            idx += 1;
-            if idx == total_bits {
-                break 'bits;
-            }
-        }
+    let mut offset = 0;
+    let leading_bits = bit_len % 8;
+    if leading_bits != 0 {
+        let mask = (1u8 << leading_bits) - 1;
+        bs.write_bits((bytes[0] & mask) as u64, leading_bits)?;
+        offset = 1;
     }
-    if acc_len > 0 {
-        bs.write_bits(acc, acc_len)?;
+
+    for chunk in bytes[offset..].chunks(8) {
+        let mut value = 0u64;
+        for &byte in chunk {
+            value = (value << 8) | u64::from(byte);
+        }
+        bs.write_bits(value, (chunk.len() * 8) as u32)?;
     }
     Ok(())
 }

@@ -69,8 +69,8 @@ Measured with `cargo bench --quick`; full details and macro-benchmarks in [BENCH
 | URL | source | base85 | ratio |
 |---|---|---|---|
 | `https://example.com/index.html` | 30 | 14 | **2.14×** |
-| `https://www.google.com/search?q=hello+world` | 43 | 28 | **1.54×** |
-| `https://example.com` | 19 | 13 | **1.46×** |
+| `https://www.google.com/search?q=hello+world` | 43 | 27 | **1.59×** |
+| `https://example.com` | 19 | 12 | **1.58×** |
 | `https://example.com/search?q=rust+url+compression&page=2&...` | 77 | 55 | **1.40×** |
 | `https://github.com/rust-lang/rust` | 33 | 24 | **1.38×** |
 
@@ -83,9 +83,9 @@ Tested across 14 diverse web archetypes (UUIDs, Git hashes, file extensions, RES
 | **Unique Domains** | 889,388 | **8,743,106** |
 | **Total URLs Encoded** | 1,000,000 | **10,000,000** |
 | **Encode Errors** | **0 (100% lossless)** | **0 (100% lossless)** |
-| **Throughput** | **118,475 URLs/s** | **106,983 URLs/s** |
-| **Mean Latency** | **8.44 µs/URL** | **9.35 µs/URL** |
-| **P50 / P90 / P99 Latency** | **7 / 15 / 18 µs** | **7 / 16 / 20 µs** |
+| **Throughput** | **371,621 URLs/s** | **382,050 URLs/s** |
+| **Mean Latency** | **2.69 µs/URL** | **2.62 µs/URL** |
+| **P50 / P90 / P99 Latency** | **2 / 3 / 4 µs** | **2 / 3 / 3 µs** |
 | **Total Source Size** | 85.65 MB (85,651,178 chars) | **869.98 MB (869,977,173 chars)** |
 | **Total Encoded Size** | 70.66 MB (70,658,513 chars) | **719.52 MB (719,521,068 chars)** |
 | **Net Storage Saved** | **14.99 MB saved** | **150.46 MB saved** |
