@@ -28,6 +28,33 @@ pub struct SegmentEncoding {
     pub symbol_count: usize,
 }
 
+const CLASS_DIGIT: u8 = 1 << 0;
+const CLASS_LOWER: u8 = 1 << 1;
+const CLASS_UPPER: u8 = 1 << 2;
+const CLASS_B64_SYM: u8 = 1 << 3;
+const CLASS_OTHER: u8 = 1 << 4;
+
+const fn make_byte_class_table() -> [u8; 256] {
+    let mut table = [CLASS_OTHER; 256];
+    let mut i = 0;
+    while i < 256 {
+        let b = i as u8;
+        if b >= b'0' && b <= b'9' {
+            table[i] = CLASS_DIGIT;
+        } else if b >= b'a' && b <= b'z' {
+            table[i] = CLASS_LOWER;
+        } else if b >= b'A' && b <= b'Z' {
+            table[i] = CLASS_UPPER;
+        } else if b == b'-' || b == b'_' {
+            table[i] = CLASS_B64_SYM;
+        }
+        i += 1;
+    }
+    table
+}
+
+const BYTE_CLASS: [u8; 256] = make_byte_class_table();
+
 /// Analyzes a segment string and selects the smallest alphabet that contains
 /// every byte.
 ///
@@ -44,17 +71,30 @@ pub fn analyze_segment(s: &str) -> SegmentEncoding {
             symbol_count: 0,
         };
     }
-    for info in &ALPHABETS[..5] {
-        if s.bytes().all(|b| char_index(b, info.chars).is_some()) {
+    let mut mask = 0u8;
+    for &b in s.as_bytes() {
+        mask |= BYTE_CLASS[b as usize];
+        if mask & CLASS_OTHER != 0 {
             return SegmentEncoding {
-                alphabet_id: info.id,
+                alphabet_id: 6,
                 value: s.as_bytes().to_vec(),
                 symbol_count: s.len(),
             };
         }
     }
+    let alphabet_id = if mask & CLASS_B64_SYM != 0 {
+        4
+    } else if mask & CLASS_UPPER != 0 {
+        3
+    } else if mask == (CLASS_DIGIT | CLASS_LOWER) {
+        2
+    } else if mask == CLASS_LOWER {
+        1
+    } else {
+        0
+    };
     SegmentEncoding {
-        alphabet_id: 6,
+        alphabet_id,
         value: s.as_bytes().to_vec(),
         symbol_count: s.len(),
     }

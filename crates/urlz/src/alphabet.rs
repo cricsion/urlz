@@ -124,28 +124,13 @@ pub fn char_index(c: u8, alphabet: &[u8]) -> Option<usize> {
 pub fn to_base(v: &BigUint, alphabet: &[u8]) -> String {
     debug_assert!(!alphabet.is_empty(), "to_base: alphabet must not be empty");
     let base = alphabet.len();
-    if (2..=256).contains(&base) {
-        let digits = v.to_radix_be(base as u32);
-        let symbols: Vec<u8> = digits
-            .into_iter()
-            .map(|digit| alphabet[digit as usize])
-            .collect();
-        return String::from_utf8(symbols).expect("alphabet symbols are valid ASCII");
-    }
     if v.is_zero() {
         return String::from(alphabet[0] as char);
     }
-    let mut digits = Vec::new();
-    let mut n = v.clone();
-    while !n.is_zero() {
-        let q = &n / base;
-        let r = &n % base;
-        // r < base ≤ 256, so it always fits in a single u32 digit.
-        let idx = r.iter_u32_digits().next().unwrap_or(0) as usize;
-        digits.push(alphabet[idx]);
-        n = q;
+    let mut digits = v.to_radix_be(base as u32);
+    for digit in &mut digits {
+        *digit = alphabet[*digit as usize];
     }
-    digits.reverse();
     String::from_utf8(digits).expect("alphabet symbols are valid ASCII")
 }
 
@@ -163,35 +148,20 @@ pub fn from_base(s: &str, alphabet: &[u8]) -> Result<BigUint, Error> {
         !alphabet.is_empty(),
         "from_base: alphabet must not be empty"
     );
-    if (2..=256).contains(&alphabet.len()) {
-        let mut digits = Vec::with_capacity(s.len());
-        for c in s.chars() {
-            let idx = if c.is_ascii() {
-                char_index(c as u8, alphabet)
-            } else {
-                None
-            };
-            digits.push(idx.ok_or(Error::UnsupportedCharacter(c))? as u8);
-        }
-        return BigUint::from_radix_be(&digits, alphabet.len() as u32).ok_or_else(|| {
-            Error::InvalidPayload {
-                reason: "alphabet digit is out of range".to_string(),
-            }
-        });
-    }
-
-    let base = BigUint::from(alphabet.len());
-    let mut result = BigUint::zero();
+    let mut digits = Vec::with_capacity(s.len());
     for c in s.chars() {
         let idx = if c.is_ascii() {
             char_index(c as u8, alphabet)
         } else {
             None
         };
-        let idx = idx.ok_or(Error::UnsupportedCharacter(c))?;
-        result = result * &base + BigUint::from(idx);
+        digits.push(idx.ok_or(Error::UnsupportedCharacter(c))? as u8);
     }
-    Ok(result)
+    BigUint::from_radix_be(&digits, alphabet.len() as u32).ok_or_else(|| {
+        Error::InvalidPayload {
+            reason: "alphabet digit is out of range".to_string(),
+        }
+    })
 }
 
 pub fn biguint_from_bytes_be(bytes: &[u8]) -> BigUint {

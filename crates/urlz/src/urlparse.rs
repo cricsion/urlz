@@ -76,37 +76,39 @@ impl Default for ParsedUrl {
 impl fmt::Display for ParsedUrl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let scheme = if self.https { "https" } else { "http" };
-        let www = if self.www { "www." } else { "" };
-        let host = if self.tld.is_empty() {
-            format!("{www}{}", self.host)
-        } else {
-            format!("{www}{}.{}", self.host, self.tld)
-        };
-        let path = if self.path_segments.is_empty() {
-            String::new()
-        } else {
-            format!("/{}", self.path_segments.join("/"))
-        };
-        let query = if self.query_segments.is_empty() {
-            String::new()
-        } else {
-            let pairs = self
-                .query_segments
-                .iter()
-                .map(|(k, v)| match v {
-                    Some(v) => format!("{k}={v}"),
-                    None => k.clone(),
-                })
-                .collect::<Vec<_>>()
-                .join("&");
-            format!("?{pairs}")
-        };
-        let fragment = if self.fragment_segments.is_empty() {
-            String::new()
-        } else {
-            format!("#{}", self.fragment_segments.join("/"))
-        };
-        write!(f, "{scheme}://{host}{path}{query}{fragment}")
+        write!(f, "{scheme}://")?;
+        if self.www {
+            write!(f, "www.")?;
+        }
+        write!(f, "{}", self.host)?;
+        if !self.tld.is_empty() {
+            write!(f, ".{}", self.tld)?;
+        }
+        for seg in &self.path_segments {
+            write!(f, "/{seg}")?;
+        }
+        if !self.query_segments.is_empty() {
+            write!(f, "?")?;
+            for (i, (k, v)) in self.query_segments.iter().enumerate() {
+                if i > 0 {
+                    write!(f, "&")?;
+                }
+                write!(f, "{k}")?;
+                if let Some(val) = v {
+                    write!(f, "={val}")?;
+                }
+            }
+        }
+        if !self.fragment_segments.is_empty() {
+            write!(f, "#")?;
+            for (i, seg) in self.fragment_segments.iter().enumerate() {
+                if i > 0 {
+                    write!(f, "/")?;
+                }
+                write!(f, "{seg}")?;
+            }
+        }
+        Ok(())
     }
 }
 
@@ -216,9 +218,8 @@ pub fn parse_url(s: &str) -> Result<ParsedUrl, Error> {
     let port_suffix = port.map_or_else(String::new, |p| format!(":{p}"));
 
     // Strip a leading "www." label (case-insensitive) and lowercase the host.
-    // `to_ascii_lowercase` also lowercases percent-escape hex digits, so
-    // re-uppercase them to match the normalization used everywhere else.
-    let lower_host = uppercase_escape_hex(&host_part.to_ascii_lowercase());
+    // Percent-escape hex digits are kept uppercase to match standard normalization.
+    let lower_host = normalize_host_escapes(host_part);
     let (host_label, www) = match lower_host.strip_prefix("www.") {
         Some(rest) if !rest.is_empty() => (rest.to_string(), true),
         Some(_) => {
@@ -320,10 +321,8 @@ fn push_percent_encoded(out: &mut String, byte: u8) {
     out.push(HEX[(byte & 0x0F) as usize] as char);
 }
 
-/// Re-uppercase `%XX` hex digits after ASCII lowercasing. The input was
-/// validated by [`normalize_percent_encoding`], so every `%` is followed by
-/// two hex digits.
-fn uppercase_escape_hex(s: &str) -> String {
+/// Lowercase host ASCII characters in a single pass while keeping %XX escape hex digits uppercase.
+fn normalize_host_escapes(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
@@ -332,12 +331,12 @@ fn uppercase_escape_hex(s: &str) -> String {
             for _ in 0..2 {
                 match chars.next() {
                     Some(h) if h.is_ascii_hexdigit() => out.push(h.to_ascii_uppercase()),
-                    Some(h) => out.push(h),
+                    Some(h) => out.push(h.to_ascii_lowercase()),
                     None => break,
                 }
             }
         } else {
-            out.push(c);
+            out.push(c.to_ascii_lowercase());
         }
     }
     out
@@ -396,7 +395,11 @@ fn detect_index_suffix(path_segments: &[String]) -> IndexSuffix {
         IndexSuffix::IndexHtml
     } else if last == "index.php" {
         IndexSuffix::IndexPhp
-    } else if last.to_ascii_lowercase().starts_with("index.") {
+    } else if last
+        .as_bytes()
+        .get(..6)
+        .is_some_and(|b| b.eq_ignore_ascii_case(b"index."))
+    {
         IndexSuffix::Other(last.clone())
     } else {
         IndexSuffix::None

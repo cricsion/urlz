@@ -76,16 +76,16 @@ Measured with `cargo bench --quick`; full details and macro-benchmarks in [BENCH
 
 ### Macro-Benchmarks (Tranco 1M and Top 10M Datasets)
 
-Tested across 14 diverse web archetypes (UUIDs, Git hashes, file extensions, REST APIs, e-commerce, tracking tags, media links, and queries):
+Tested on an Apple M3 MacBook Air across 14 diverse web archetypes (UUIDs, Git hashes, file extensions, REST APIs, e-commerce, tracking tags, media links, and queries):
 
 | Metric | **Tranco 1 Million (1M URLs)** | **Top 10 Million (10M URLs)** |
 |---|:---:|:---:|
 | **Unique Domains** | 889,388 | **8,743,106** |
 | **Total URLs Encoded** | 1,000,000 | **10,000,000** |
 | **Encode Errors** | **0 (100% lossless)** | **0 (100% lossless)** |
-| **Throughput** | **371,621 URLs/s** | **382,050 URLs/s** |
-| **Mean Latency** | **2.69 µs/URL** | **2.62 µs/URL** |
-| **P50 / P90 / P99 Latency** | **2 / 3 / 4 µs** | **2 / 3 / 3 µs** |
+| **Throughput** | **416,366 URLs/s** | **413,269 URLs/s** |
+| **Mean Latency** | **2.40 µs/URL** | **2.42 µs/URL** |
+| **P50 / P90 / P99 Latency** | **2 / 3 / 3 µs** | **2 / 3 / 3 µs** |
 | **Total Source Size** | 85.65 MB (85,651,178 chars) | **869.98 MB (869,977,173 chars)** |
 | **Total Encoded Size** | 70.66 MB (70,658,513 chars) | **719.52 MB (719,521,068 chars)** |
 | **Net Storage Saved** | **14.99 MB saved** | **150.46 MB saved** |

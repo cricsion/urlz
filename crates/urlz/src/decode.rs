@@ -72,20 +72,20 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
     let index_code = bs.read_bits(2)? as u8;
 
     let host_mode = bs.read_bits(2)? as u8;
-    let host = match host_mode {
+    let host: std::borrow::Cow<'_, str> = match host_mode {
         0 => {
             let idx = bs.read_bits(8)? as u8;
             if idx == HOST_ESCAPE {
-                read_segment(&mut bs)?
+                std::borrow::Cow::Owned(read_segment(&mut bs)?)
             } else if idx as usize >= COMMON_HOSTS.len() {
                 return Err(Error::InvalidPayload {
                     reason: format!("host dictionary index {idx} out of range"),
                 });
             } else {
-                host_at(idx).to_string()
+                std::borrow::Cow::Borrowed(host_at(idx))
             }
         }
-        1 | 2 => read_segment(&mut bs)?,
+        1 | 2 => std::borrow::Cow::Owned(read_segment(&mut bs)?),
         3 => {
             return Err(Error::InvalidPayload {
                 reason: "reserved host mode".to_string(),
@@ -104,16 +104,16 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
     }
 
     let tld_mode = bs.read_bits(1)? as u8;
-    let tld = match tld_mode {
+    let tld: std::borrow::Cow<'_, str> = match tld_mode {
         0 => {
             let idx = bs.read_bits(5)? as u8;
             if idx == TLD_ESCAPE {
-                String::new()
+                std::borrow::Cow::Borrowed("")
             } else {
-                tld_at(idx).to_string()
+                std::borrow::Cow::Borrowed(tld_at(idx))
             }
         }
-        1 => read_segment(&mut bs)?,
+        1 => std::borrow::Cow::Owned(read_segment(&mut bs)?),
         _ => {
             return Err(Error::InvalidPayload {
                 reason: "invalid tld mode".to_string(),
@@ -126,11 +126,11 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
         });
     }
 
-    let index_suffix: Option<String> = match index_code {
+    let index_suffix: Option<std::borrow::Cow<'_, str>> = match index_code {
         0 => None,
-        1 => Some("index.html".to_string()),
-        2 => Some("index.php".to_string()),
-        3 => Some(read_segment(&mut bs)?),
+        1 => Some(std::borrow::Cow::Borrowed("index.html")),
+        2 => Some(std::borrow::Cow::Borrowed("index.php")),
+        3 => Some(std::borrow::Cow::Owned(read_segment(&mut bs)?)),
         _ => {
             return Err(Error::InvalidPayload {
                 reason: "invalid index suffix code".to_string(),
@@ -142,10 +142,21 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
     let query_present = bs.read_bits(1)? == 1;
     let fragment_present = bs.read_bits(1)? == 1;
 
-    let mut path_segments: Vec<String> = Vec::new();
+    let mut result = String::with_capacity(bits.len() * 2);
+    result.push_str(if https { "https://" } else { "http://" });
+    if www {
+        result.push_str("www.");
+    }
+    result.push_str(&host);
+    if !tld.is_empty() {
+        result.push('.');
+        result.push_str(&tld);
+    }
+
     if path_present {
         let count = read_varint_checked(&mut bs, MAX_SEGMENT_COUNT, "segment count")?;
         for _ in 0..count {
+            result.push('/');
             let is_dict_token = bs.read_bits(1)? == 1;
             if is_dict_token {
                 let token_idx = bs.read_bits(6)? as u8;
@@ -154,60 +165,67 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
                         reason: format!("path token index {token_idx} out of range"),
                     });
                 }
-                path_segments.push(path_token_at(token_idx).to_string());
+                result.push_str(path_token_at(token_idx));
             } else {
-                path_segments.push(read_segment(&mut bs)?);
+                result.push_str(&read_segment(&mut bs)?);
             }
         }
     }
 
-    let mut query_segments: Vec<(String, Option<String>)> = Vec::new();
+    if let Some(suffix) = &index_suffix {
+        result.push('/');
+        result.push_str(suffix);
+    }
+
     if query_present {
+        result.push('?');
         let count = read_varint_checked(&mut bs, MAX_SEGMENT_COUNT, "segment count")?;
-        for _ in 0..count {
+        for i in 0..count {
+            if i > 0 {
+                result.push('&');
+            }
             // Key
             let is_dict_key = bs.read_bits(1)? == 1;
-            let key = if is_dict_key {
+            if is_dict_key {
                 let key_idx = bs.read_bits(6)? as u8;
                 if key_idx as usize >= COMMON_QUERY_KEYS.len() {
                     return Err(Error::InvalidPayload {
                         reason: format!("query key index {key_idx} out of range"),
                     });
                 }
-                query_key_at(key_idx).to_string()
+                result.push_str(query_key_at(key_idx));
             } else {
-                read_segment(&mut bs)?
-            };
+                result.push_str(&read_segment(&mut bs)?);
+            }
 
             // Value
             let has_val = bs.read_bits(1)? == 1;
-            let value = if has_val {
+            if has_val {
+                result.push('=');
                 let is_dict_val = bs.read_bits(1)? == 1;
-                let val_str = if is_dict_val {
+                if is_dict_val {
                     let val_idx = bs.read_bits(5)? as u8;
                     if val_idx as usize >= COMMON_QUERY_VALUES.len() {
                         return Err(Error::InvalidPayload {
                             reason: format!("query value index {val_idx} out of range"),
                         });
                     }
-                    query_value_at(val_idx).to_string()
+                    result.push_str(query_value_at(val_idx));
                 } else {
-                    read_segment(&mut bs)?
-                };
-                Some(val_str)
-            } else {
-                None
-            };
-
-            query_segments.push((key, value));
+                    result.push_str(&read_segment(&mut bs)?);
+                }
+            }
         }
     }
 
-    let mut fragment_segments: Vec<String> = Vec::new();
     if fragment_present {
+        result.push('#');
         let count = read_varint_checked(&mut bs, MAX_SEGMENT_COUNT, "segment count")?;
-        for _ in 0..count {
-            fragment_segments.push(read_segment(&mut bs)?);
+        for i in 0..count {
+            if i > 0 {
+                result.push('/');
+            }
+            result.push_str(&read_segment(&mut bs)?);
         }
     }
 
@@ -217,40 +235,6 @@ pub fn decode_bits(bits: &[u8]) -> Result<String, Error> {
         });
     }
 
-    let mut result = String::new();
-    result.push_str(if https { "https" } else { "http" });
-    result.push_str("://");
-    if www {
-        result.push_str("www.");
-    }
-    result.push_str(&host);
-    if !tld.is_empty() {
-        result.push('.');
-        result.push_str(&tld);
-    }
-    if !path_segments.is_empty() {
-        result.push('/');
-        result.push_str(&path_segments.join("/"));
-    }
-    if let Some(suffix) = &index_suffix {
-        result.push('/');
-        result.push_str(suffix);
-    }
-    if query_present {
-        result.push('?');
-        let pairs: Vec<String> = query_segments
-            .iter()
-            .map(|(key, value)| match value {
-                Some(v) => format!("{}={}", key, v),
-                None => key.clone(),
-            })
-            .collect();
-        result.push_str(&pairs.join("&"));
-    }
-    if fragment_present {
-        result.push('#');
-        result.push_str(&fragment_segments.join("/"));
-    }
     Ok(result)
 }
 

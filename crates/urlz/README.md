@@ -84,7 +84,7 @@ fn main() -> Result<(), urlz::Error> {
 
 ## Key Features
 
-- ⚡ **High Throughput:** Encodes over **370,000+ URLs/sec** with sub-3µs mean latency.
+- ⚡ **High Throughput:** Encodes over **415,000+ URLs/sec** with sub-2.5µs mean latency (tested on Apple M3 MacBook Air).
 - 🛡️ **Hostile Input Resilience:** Strict memory boundaries (64 KiB payload cap, 64 segments/region). Rejects invalid padding, varint overflows, and bad indices as typed errors — **never panics**.
 - 🗜️ **Adaptive Multi-Base & Huffman:** Automatically selects between 8 character sets (Base10, Base26, Base36, Base62, Base64url, Canonical Huffman, Raw UTF-8) to minimize wire size.
 - 🌐 **Stateless & Offline:** Zero centralized databases, zero lookups, and no network dependencies.
@@ -94,7 +94,7 @@ fn main() -> Result<(), urlz::Error> {
 ## Documentation & Recipes
 
 - **Repository & Architecture Deep Dive:** [github.com/cricsion/urlz](https://github.com/cricsion/urlz)
-- **Specification:** [ARCHITECTURE.md](https://github.com/cricsion/urlz/blob/main/ARCHITECTURE.md)
+- **Specification:** [`ARCHITECTURE.md`](https://github.com/cricsion/urlz/blob/main/ARCHITECTURE.md)
 - **Practical User Guide & Recipes:** [`USAGE.md`](https://github.com/cricsion/urlz/blob/main/USAGE.md)
 - **Benchmark Suite & Comparisons:** [`BENCH.md`](https://github.com/cricsion/urlz/blob/main/BENCH.md)
 

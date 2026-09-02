@@ -319,6 +319,8 @@ pub struct HuffmanDecoder {
     first_code: [u64; 65],
     first_index: [usize; 65],
     count: [usize; 65],
+    max_len: usize,
+    has_invalid_base85_symbols: bool,
 }
 
 impl HuffmanDecoder {
@@ -326,11 +328,16 @@ impl HuffmanDecoder {
     /// table construction.
     pub fn new(cb: &Codebook) -> Result<Self, Error> {
         let tables = build_canonical_tables(cb)?;
+        let max_len = cb.0.iter().copied().max().unwrap_or(0) as usize;
+        let has_invalid_base85_symbols = cb.0.iter().enumerate()
+            .any(|(s, &len)| len > 0 && char_index(s as u8, BASE85_ALPHABET).is_none());
         Ok(Self {
             sorted: tables.sorted,
             first_code: tables.first_code,
             first_index: tables.first_index,
             count: tables.count,
+            max_len,
+            has_invalid_base85_symbols,
         })
     }
 
@@ -343,11 +350,12 @@ impl HuffmanDecoder {
     pub fn decode(&self, bits: &[u8], symbol_count: usize) -> Result<Vec<u8>, Error> {
         let mut reader = ReadBitStream::from_bytes(bits);
         let mut out = Vec::with_capacity(symbol_count);
+        let max_len = self.max_len;
         for _ in 0..symbol_count {
             let mut code: u64 = 0;
             let mut matched = false;
             let mut sym = 0u8;
-            for len in 1..=MAX_CODE_LENGTH as usize {
+            for len in 1..=max_len {
                 let bit = reader.read_bits(1).map_err(|_| Error::HuffmanError {
                     reason: "truncated huffman bitstream".to_string(),
                 })?;
@@ -368,7 +376,7 @@ impl HuffmanDecoder {
                     reason: "invalid huffman code in bitstream".to_string(),
                 });
             }
-            if char_index(sym, BASE85_ALPHABET).is_none() {
+            if self.has_invalid_base85_symbols && char_index(sym, BASE85_ALPHABET).is_none() {
                 return Err(Error::HuffmanError {
                     reason: format!("decoded symbol 0x{sym:02X} is not in the base85 alphabet"),
                 });

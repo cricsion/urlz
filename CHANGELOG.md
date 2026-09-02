@@ -6,10 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- **Performance Optimizations**:
-  - Accelerated radix base conversion in `alphabet::to_base` and `alphabet::from_base` using native `BigUint` radix operations (`to_radix_be` and `from_radix_be`).
+- **Performance & Decoding Engine**:
+  - Accelerated radix base conversions in `alphabet` via native `BigUint` radix operations (`to_radix_be` / `from_radix_be`).
   - Optimized `write_biguint_bits` bitstream packing with chunked 64-bit integer writes.
-  - Increased overall throughput from ~118,000 URLs/s to **370,000+ URLs/s** and reduced mean latency from 8.44 µs to **2.69 µs**.
+  - Single-pass O(N) alphabet classification in `analyze_segment` via static 256-byte bitmask lookup table.
+  - Zero-allocation streaming decoder avoiding intermediate segment allocations and utilizing `Cow` for static dictionary tokens.
+  - Single-pass host escape normalization and streaming `Display` formatter in `urlparse`.
+  - Bounded codebook length and symbol verification in `HuffmanDecoder`.
+  - Increased overall throughput from ~118,000 URLs/s to **415,000+ URLs/s** and reduced mean latency from 8.44 µs to **2.42 µs**.
 
 ## [0.1.1] - 2026-09-01
 

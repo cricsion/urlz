@@ -52,7 +52,7 @@ Notes:
 
 ## Macro-Benchmarks: Tranco 1M and Top 10M Datasets
 
-Tested across 14 diverse web archetypes (UUIDs, Git hashes, file extensions, REST APIs, e-commerce, tracking tags, media links, and queries):
+Tested on an Apple M3 MacBook Air across 14 diverse web archetypes (UUIDs, Git hashes, file extensions, REST APIs, e-commerce, tracking tags, media links, and queries):
 
 ```sh
 # Tranco 1 Million benchmark
@@ -67,10 +67,10 @@ cargo run --release -p xtask -- bench-tranco top10milliondomains.csv 10000000
 | **Unique Domains** | 889,388 | **8,743,106** |
 | **Total URLs Encoded** | 1,000,000 | **10,000,000** |
 | **Encode Errors** | **0 (100% lossless)** | **0 (100% lossless)** |
-| **Wall Clock Time** | **2.69 s** | **26.17 s (~26 s)** |
-| **Throughput** | **371,621 URLs/s** | **382,050 URLs/s** |
-| **Mean Latency** | **2.69 µs/url** | **2.62 µs/url** |
-| **P50 / P90 / P99 Latency** | **2 / 3 / 4 µs** | **2 / 3 / 3 µs** |
+| **Wall Clock Time** | **2.40 s** | **24.20 s (~24 s)** |
+| **Throughput** | **416,366 URLs/s** | **413,269 URLs/s** |
+| **Mean Latency** | **2.40 µs/url** | **2.42 µs/url** |
+| **P50 / P90 / P99 Latency** | **2 / 3 / 3 µs** | **2 / 3 / 3 µs** |
 | **Total Source Size** | 85.65 MB (85,651,178 chars) | **869.98 MB (869,977,173 chars)** |
 | **Total Encoded Size** | 70.66 MB (70,658,513 chars) | **719.52 MB (719,521,068 chars)** |
 | **Net Storage Saved** | **14.99 MB saved** | **150.46 MB saved** |
@@ -96,10 +96,10 @@ When compressing individual URLs in isolation (stateless link shrinking for QR c
 
 | Original URL | Length | `urlz` | Raw DEFLATE + Base85 | `gzip` + Base85 |
 |---|:---:|:---:|:---:|:---:|
-| `https://example.com` | 19 chars | **11 chars** (42% smaller) | 27 chars (+42% larger) | 38 chars (+100% larger) |
+| `https://example.com` | 19 chars | **12 chars** (37% smaller) | 27 chars (+42% larger) | 38 chars (+100% larger) |
 | `https://example.com/index.html` | 30 chars | **14 chars** (53% smaller) | 40 chars (+33% larger) | 58 chars (+93% larger) |
 | `https://github.com/rust-lang/rust` | 33 chars | **24 chars** (27% smaller) | 39 chars (+18% larger) | 54 chars (+64% larger) |
-| `https://www.google.com/search?q=hello+world` | 43 chars | **28 chars** (35% smaller) | 57 chars (+33% larger) | 72 chars (+67% larger) |
+| `https://www.google.com/search?q=hello+world` | 43 chars | **27 chars** (37% smaller) | 57 chars (+33% larger) | 72 chars (+67% larger) |
 | `https://example.com/search?q=rust+url+compression&page=2&sort=desc&filter=all` | 77 chars | **55 chars** (29% smaller) | 92 chars (+19% larger) | 108 chars (+40% larger) |
 
 ### Why General-Purpose Codecs Fail on Short Strings:
