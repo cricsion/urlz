@@ -1,8 +1,7 @@
-# urlz URL Compression Engine — Exhaustive System Architecture & Technical Deep Dive (v1.0.0)
-
+# urlz URL Compression Engine — Exhaustive System Architecture & Technical Deep Dive (v2)
 
 **Target System:** `url_compressor` (`urlz` and `xtask`)  
-**Specification Version:** v1 (Normative Wire Format & Architecture)  
+**Specification Version:** v2 (Normative Wire Format & Architecture)  
 **Repository Language:** Rust (Edition 2024, Workspace Resolver "3")  
 
 ---
@@ -59,12 +58,12 @@ Standard URLs are structurally redundant and verbosely formatted:
 - **Functional Requirements:**
   - Lossless, deterministic bidirectional conversion: $\text{URL} \longleftrightarrow \text{Bitstream} \longleftrightarrow \text{Base85 Payload}$.
   - Structural URL semantic parsing: Normalizing scheme (`http`/`https`), `www.` prefix, host/TLD extraction, trailing index file patterns (`index.html`, `index.php`), path hierarchies, ordered query pairs (`key=value`), and fragment segments (`#seg1/seg2`).
-  - Adaptive per-segment alphabet selection across 8 distinct encodings (Base10, Base26-lower, Base36, Base62, Base64url, Huffman over Base85, Raw byte fallback).
+  - Adaptive per-segment alphabet selection across 8 distinct encodings (Base10, Base26-lower, Base36, Base62, Base64url, Huffman over Base85, Raw byte fallback, Percent-encoded bytes).
   - Offline canonical Huffman codebook training over corpus files.
 - **Non-Functional Requirements:**
   - **Memory Safety & Zero-Panic Guarantee:** Strict validation on all variable-length inputs (varints, bit lengths, symbol counts); malformed or adversarial payloads must return typed errors (`Error`) without crashing or panicking.
   - **Zero-Allocation Hot Paths:** Streaming bit-level encoding/decoding without intermediate heap bloat.
-  - **High Throughput:** 415,000+ URLs/sec single-core encoding performance with sub-2.5µs mean latency.
+  - **High Throughput:** 450,000+ URLs/sec single-core encoding performance with sub-2.25µs mean latency.
   - **Bounded Resource Limits:** Hard caps preventing decompression bombs (Payload $\le 65,536$ bytes, Segments/Region $\le 64$, Symbols/Segment $\le 4,096$).
 
 ---
@@ -110,7 +109,7 @@ Standard URLs are structurally redundant and verbosely formatted:
 - **Normalized URL:** Canonicalized URL with lowercased scheme/host, stripped default ports (`:80`, `:443`), uppercase percent-escapes (`%2F`), and explicit empty segment preservation.
 - **Dictionary Set ID (`DICT_SET_ID` = 1):** 4-bit header value binding the payload to static host/TLD codebooks.
 - **Varint (Variable-Length Quantity):** 7-bit continuation LEB128-style serialization packed MSB-first into the bitstream (up to 10 groups covering a full `u64`).
-- **Alphabet Registry:** An 8-slot lookup table mapping 4-bit IDs (`0..=7`) to numeric radixes and character subsets.
+- **Alphabet Registry:** An 8-slot lookup table mapping 3-bit IDs (`0..=7`) to numeric radixes and character subsets.
 - **Segment:** A discrete URL component (path step, query key/value, or fragment token) encoded using its minimal sufficient alphabet or canonical Huffman codebook.
 - **Canonical Huffman Codebook:** Prefix-free, deterministic binary codebook generated from symbol frequencies, serialized as 256 contiguous length bytes.
 - **Base85 Wire Format:** 85 printable ASCII characters (excluding 9 problematic characters: `" ' \ % + / = < >`) mapping large big-endian integers to compact text.
@@ -298,7 +297,7 @@ url_compressor/
 ### Purpose & Responsibilities
 The `alphabet.rs` module is the foundational mathematical layer of urlz. It owns:
 1. The definition of the primary wire character set: `BASE85_ALPHABET`.
-2. The 8-entry canonical alphabet registry (`ALPHABETS`) defining 4-bit IDs (`0..=7`).
+2. The 8-entry canonical alphabet registry (`ALPHABETS`) defining 3-bit IDs (`0..=7`).
 3. Compile-time precomputed 256-byte inverse lookup tables (`ALPHABET_INV` and `BASE85_INV`) for $O(1)$ character validation without allocations.
 4. Arbitrary-precision base-conversion functions transforming between `num_bigint::BigUint` numeric values and positional symbol strings in any radix $N \le 85$.
 
@@ -307,7 +306,7 @@ The `alphabet.rs` module is the foundational mathematical layer of urlz. It owns
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlphabetInfo {
-    pub id: u8,                // 4-bit identifier (0..=7)
+    pub id: u8,                // 3-bit identifier (0..=7)
     pub name: &'static str,    // Descriptive name (e.g. "base10", "base62")
     pub chars: &'static [u8],  // Byte table for base-N conversion (empty for IDs 5, 6, 7)
 }
@@ -316,18 +315,18 @@ pub struct AlphabetInfo {
 ```
 +--------------------------------------------------------------------------------------------------+
 |                                      urlz ALPHABET REGISTRY                                      |
-+----+---------------+-------+----------------------------------------------------+----------------+
-| ID | Identifier    | Radix | Character Set Slices                               | Usage Domain   |
-+----+---------------+-------+----------------------------------------------------+----------------+
-| 0  | base10        | 10    | b"0123456789"                                      | Numeric paths  |
-| 1  | base26-lower  | 26    | b"abcdefghijklmnopqrstuvwxyz"                      | Low-case hosts |
-| 2  | base36        | 36    | b"0123456789abcdefghijklmnopqrstuvwxyz"             | Alphanum-lower |
-| 3  | base62        | 62    | b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef..."   | Mixed-case ID  |
-| 4  | base64url     | 64    | b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef...0123456789-_" | URL-safe base64|
-| 5  | huffman-mode  | (85)  | &[] (Uses BASE85_ALPHABET via canonical Huffman)   | General ASCII  |
-| 6  | raw-fallback  | (256) | &[] (Raw UTF-8 / binary 0x00..=0xFF)               | Foreign UTF-8  |
-| 7  | reserved      | 0     | &[] (Future expansion; decoder rejects)            | Reserved       |
-+----+---------------+-------+----------------------------------------------------+----------------+
++----+--------------------+-------+----------------------------------------------------+-----------+
+| ID | Identifier         | Radix | Character Set Slices                               | Usage     |
++----+--------------------+-------+----------------------------------------------------+-----------+
+| 0  | base10             | 10    | b"0123456789"                                      | Numeric   |
+| 1  | base26-lower       | 26    | b"abcdefghijklmnopqrstuvwxyz"                      | Low-case  |
+| 2  | base36             | 36    | b"0123456789abcdefghijklmnopqrstuvwxyz"             | Alphanum  |
+| 3  | base62             | 62    | b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef..."   | Mixed-case|
+| 4  | base64url          | 64    | b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef...0123456789-_" | URL base64|
+| 5  | huffman-mode       | (85)  | &[] (Uses BASE85_ALPHABET via canonical Huffman)   | Gen ASCII |
+| 6  | raw-fallback       | (256) | &[] (Raw UTF-8 / binary 0x00..=0xFF)               | Foreign   |
+| 7  | pure-percent-bytes | (256) | &[] (Contiguous %XX sequences decoded to raw bytes)| %-encoded |
++----+--------------------+-------+----------------------------------------------------+-----------+
 ```
 
 ### Exact Character Sets
@@ -420,8 +419,8 @@ The `dict.rs` module manages static, immutable dictionary tables for Top-Level D
 | Dictionary | Entries | Index Range | Purpose |
 |------------|:-------:|:-----------:|---------|
 | `KNOWN_TLDS` | 32 | 0-31 | Common TLDs (`com`, `org`, `net`, etc. Sentinel 31 = bare host/IP) |
-| `COMMON_HOSTS` | 40 | 0-39 | Popular domains (`google`, `github`, `youtube`, etc. 255 = escape) |
-| `COMMON_PATH_TOKENS` | 64 | 0-63 | Common path segments (`api`, `v1`, `users`, `posts`, `app`, etc.) |
+| `COMMON_HOSTS` | 255 | 0-254 | Popular domains (`google`, `github`, `youtube`, etc. 255 = escape) |
+| `COMMON_PATH_TOKENS` | 128 | 0-127 | Common path segments (`api`, `v1`, `users`, `posts`, `app`, etc.) |
 | `COMMON_QUERY_KEYS` | 64 | 0-63 | Common query keys (`utm_source`, `q`, `page`, `id`, `lang`, etc.) |
 | `COMMON_QUERY_VALUES` | 32 | 0-31 | Common query values (`true`, `false`, `1`, `0`, `json`, etc.) |
 
@@ -433,7 +432,7 @@ pub const TLD_ESCAPE: u8 = 31;      // Sentinel: Bare host / IP / No TLD
 pub const HOST_ESCAPE: u8 = 255;    // Sentinel: Escape to literal host mode
 ```
 
-The canonical, immutable string arrays are defined in [`crates/urlz/src/dict.rs`](crates/urlz/src/dict.rs). Index ordering is normative across all v1 implementations.
+The canonical, immutable string arrays are defined in [`crates/urlz/src/dict.rs`](crates/urlz/src/dict.rs). Index ordering is normative across all v2 implementations.
 
 ---
 
@@ -548,45 +547,60 @@ pub struct HuffmanDecoder {
 
 ```
 +--------------------------------------------------------------------------------------------------+
-|                                    urlz v1 BITSTREAM LAYOUT                                    |
+|                                    urlz v2 BITSTREAM LAYOUT                                      |
 +--------------------------------------------------------------------------------------------------+
 | Field Name               | Width (Bits) | Description / Value Encoding                           |
 +--------------------------+--------------+--------------------------------------------------------+
 | 1. HEADER (12 Bits)                                                                              |
-|   version                | 4            | Literal 1 (v1)                                         |
+|   version                | 4            | Literal 2 (WIRE_VERSION)                               |
 |   dict_set_id            | 4            | Literal 1 (DICT_SET_ID)                                |
 |   https_flag             | 1            | 1 = HTTPS, 0 = HTTP                                    |
 |   www_flag               | 1            | 1 = "www." present, 0 = absent                         |
 |   index_suffix           | 2            | 0 = None, 1 = index.html, 2 = index.php, 3 = Other     |
 +--------------------------+--------------+--------------------------------------------------------+
-| 2. HOST (Variable)                                                                               |
-|   host_mode              | 2            | 0 = Dict Host, 1 = Base26-lower, 2 = Base62/Mixed      |
-|   [Mode 0] host_index    | 8            | 0..=39 (COMMON_HOSTS), 255 = Escape to Literal         |
-|   [Mode 1/2] segment     | Variable     | alphabet_id(4) + symbol_count(varint) + ...            |
+| 2. PORT (Variable)                                                                               |
+|   port_flag              | 1            | 1 = non-default port, 0 = default (dropped)            |
+|   [If port_flag] mode    | 2            | 0 = 8080, 1 = 8443, 2 = 3000, 3 = raw u16 (16 bits)    |
+|   [If mode == 3] raw_port| 16           | Big-endian 16-bit integer                              |
 +--------------------------+--------------+--------------------------------------------------------+
-| 3. TLD (Variable)                                                                                |
+| 3. HOST (Variable)                                                                               |
+|   subdomain_flag         | 1            | 1 = multi-label host, 0 = single host                  |
+|   [If subdomain_flag]    |              |                                                        |
+|     label_count - 2      | 3            | Number of labels (2..=9)                               |
+|     labels               | Variable     | For each: is_dict(1) + index(8) or literal segment     |
+|   [If single host]       |              |                                                        |
+|     host_mode            | 2            | 0 = Dict Host, 1 = Base26-lower, 2 = Base62/Literal    |
+|     [Mode 0] host_index  | 8            | 0..=254 (COMMON_HOSTS), 255 = Escape to Literal        |
+|     [Mode 1/2] segment   | Variable     | Segment encoding                                       |
++--------------------------+--------------+--------------------------------------------------------+
+| 4. TLD (Variable)                                                                                |
 |   tld_mode               | 1            | 0 = Dict TLD, 1 = Literal Base26-lower                 |
 |   [Mode 0] tld_index     | 5            | 0..=30 (KNOWN_TLDS), 31 = EMPTY TLD (IP/Bare host)     |
-|   [Mode 1] segment       | Variable     | alphabet_id(4) + symbol_count(varint) + ...            |
+|   [Mode 1] segment       | Variable     | Segment encoding                                       |
 +--------------------------+--------------+--------------------------------------------------------+
-| 4. INDEX-SUFFIX LITERAL (Optional, only present if header.index_suffix == 3)                      |
+| 5. INDEX-SUFFIX LITERAL (Optional, only present if header.index_suffix == 3)                      |
 |   literal_segment        | Variable     | Segment encoding for custom "index.*" filename         |
 +--------------------------+--------------+--------------------------------------------------------+
-| 5. RESOURCE REGIONS (Variable)                                                                   |
+| 6. RESOURCE REGIONS (Variable)                                                                   |
 |   path_present           | 1            | 1 = Path segments exist, 0 = None                      |
 |   query_present          | 1            | 1 = Query pairs exist, 0 = None                        |
 |   fragment_present       | 1            | 1 = Fragment segments exist, 0 = None                  |
-|   -- For each present region:                                                                    |
-|     segment_count        | varint       | Number of segments in this region (<= 64)              |
+|   -- Path (if present):                                                                          |
+|     segment_count        | 4 nibble / v | Compact count (0..14 as 4b, 15 + varint for >= 15)     |
+|     segments             | Variable     | For each: is_dict(1) + token_index(7) or segment      |
+|   -- Query (if present):                                                                         |
+|     pair_count           | 4 nibble / v | Compact count (0..14 as 4b, 15 + varint for >= 15)     |
+|     pairs                | Variable     | Key: is_dict(1)+idx(6) / seg; Val: has_val(1)+...      |
+|   -- Fragment (if present):                                                                      |
+|     segment_count        | 4 nibble / v | Compact count (0..14 as 4b, 15 + varint for >= 15)     |
 |     segments             | Variable     | N repetitions of Segment Layout                        |
 +--------------------------+--------------+--------------------------------------------------------+
 | SEGMENT LAYOUT (Repeated for every segment)                                                      |
-|   alphabet_id            | 4            | 0..=4 (Base-N), 5 (Huffman), 6 (Raw bytes)             |
-|   symbol_count           | varint       | Number of original characters / symbols (<= 4096)      |
-|   value_bit_length       | varint       | Bit width W of following payload                       |
-|   value_bits             | W            | Big-endian value bits (MSB-first)                      |
+|   alphabet_id            | 3            | 0..=4 (Base-N), 5 (Huffman), 6 (Raw), 7 (PctBytes)     |
+|   symbol_count           | 4 nibble / v | Compact count (0..14 as 4b, 15 + varint for >= 15)     |
+|   value_bits             | Variable     | Fixed-bit zero-padded integer, Huffman codes, or bytes |
 +--------------------------+--------------+--------------------------------------------------------+
-| 6. TAIL PADDING                                                                                  |
+| 7. TAIL PADDING                                                                                  |
 |   zero_pad               | 0..7         | Zero-bits to align bitstream to whole byte boundary    |
 +--------------------------+--------------+--------------------------------------------------------+
 ```
@@ -607,18 +621,18 @@ const MAX_HOST_TLD_LEN: usize = 4_096;                 // Max length for host/tl
 
 ### Mandatory Validation Rules
 
-| Check | Error Condition | Rationale |
+| Invariant (Must Hold) | Error on Violation | Rationale |
 |---|---|---|
-| `version == 1` | `Error::UnsupportedVersion` | Prevents interpreting future format revisions as v1 |
+| `version == 2` | `Error::UnsupportedVersion(v)` (if `v != 2`) | Prevents interpreting incompatible format revisions |
 | `dict_set_id == 1` | `Error::InvalidPayload("unknown dict set")` | Prevents decoding against mismatched codebook dictionaries |
 | Bounded bitstream read | `Error::InvalidPayload` | Prevents panicking on truncated or incomplete byte payloads |
 | Trailing zero-padding | `Error::InvalidPayload("non-zero padding")` | Ensures bitstream integrity and rejects malformed tails |
 | `segment_count <= 64` per region | `Error::InvalidPayload("segment count too large")` | Prevents memory allocation DoS attacks |
 | `symbol_count <= 4096` per segment | `Error::InvalidPayload("symbol count too large")` | Bounds single-segment allocation sizes |
 | `payload_len <= 65536` bytes | `Error::InvalidPayload("payload too large")` | Hard upper boundary on incoming text strings |
-| `host_index <= 39` or `255` | `Error::InvalidPayload("host index out of range")` | Memory safety over static array slices |
+| `host_index <= 254` or `255` | `Error::InvalidPayload("host index out of range")` | Memory safety over static array slices |
 | `tld_index <= 31` | `Error::InvalidPayload("tld index out of range")` | Bounds TLD dictionary lookup |
-| `alphabet_id <= 6` (7 reserved) | `Error::InvalidPayload("reserved alphabet id")` | Strict rejection of unassigned alphabet slots |
+| `alphabet_id <= 7` | `Error::InvalidPayload` | Strict validation of alphabet slots (0..=4 Base-N, 5 Huffman, 6 Raw, 7 PctBytes) |
 | Huffman decoded count == `symbol_count` | `Error::HuffmanError` | Verifies prefix codebook bitstream integrity |
 
 ### Edge Cases Matrix
@@ -700,7 +714,7 @@ User Input: "https://www.google.com/search?q=rust"
   │     │     └─► Returns ParsedUrl struct
   │     │
   │     ├─► [2.2] Write Header (12 bits) to WriteBitStream
-  │     │     ├─► write_bits(version = 1, 4)
+  │     │     ├─► write_bits(version = 2, 4)
   │     │     ├─► write_bits(dict_set_id = 1, 4)
   │     │     ├─► write_bits(https = 1, 1)
   │     │     ├─► write_bits(www = 1, 1)
@@ -722,15 +736,14 @@ User Input: "https://www.google.com/search?q=rust"
   │     │     └─► fragment_present = 0 (1 bit)
   │     │
   │     ├─► [2.6] Write Path Region
-  │     │     ├─► write_varint(segment_count = 1)
+  │     │     ├─► write_compact_count(segment_count = 1)
   │     │     ├─► segment::analyze_segment("search") -> alphabet_id = 1 (base26-lower)
   │     │     └─► write_segment(): evaluates Huffman vs Base26 cost -> writes chosen bits
   │     │
   │     ├─► [2.7] Write Query Region
-  │     │     ├─► write_varint(segment_count = 1)
-  │     │     ├─► Segment string: "q=rust"
-  │     │     ├─► segment::analyze_segment("q=rust") -> alphabet_id = 6 (raw, '=' present)
-  │     │     └─► write_segment(): Huffman wins over raw -> writes alphabet_id = 5 + Huffman bits
+  │     │     ├─► write_compact_count(pair_count = 1)
+  │     │     ├─► Write key "q": lookup_query_key or write_segment
+  │     │     └─► Write value "rust": has_value = 1, lookup_query_value or write_segment
   │     │
   │     ├─► [2.8] Finalize Bitstream
   │     │     ├─► WriteBitStream::into_bytes() -> Flushes zero-padding to byte boundary
@@ -759,17 +772,18 @@ User Input: Encoded Base85 Payload String S
   │     │
   │     └─► [2] decode_bits(&bits)
   │           ├─► ReadBitStream::from_bytes(&bits)
-  │           ├─► Read Header (12b): version == 1, dict_set_id == 1, https, www, index_code
+  │           ├─► Read Header (12b): version == 2, dict_set_id == 1, https, www, index_code
   │           ├─► Read Host (host_mode 0, 1, or 2) -> Lookup dict or decode segment
   │           ├─► Read TLD (tld_mode 0 or 1) -> Lookup dict or decode segment
   │           ├─► Read Index Suffix (if index_code == 3, decode literal segment)
   │           ├─► Read Region Flags (path_present, query_present, fragment_present)
   │           ├─► Read Segments:
-  │           │     ├─► Read alphabet_id (4 bits)
-  │           │     ├─► Read symbol_count (varint) <= 4096
-  │           │     ├─► Read value_bit_length (varint) <= 65536
-  │           │     ├─► If alphabet_id == 5: HuffmanDecoder::decode()
-  │           │     └─► Else: read_biguint_bits() -> biguint_to_symbols() (left-pad with alphabet[0])
+  │           │     ├─► Read alphabet_id (3 bits)
+  │           │     ├─► Read symbol_count (compact count) <= 4096
+  │           │     ├─► If alphabet_id == 7: decode_pure_percent()
+  │           │     ├─► Else if alphabet_id == 5: HuffmanDecoder::decode_from()
+  │           │     ├─► Else if alphabet_id == 6: read raw 8-bit bytes
+  │           │     └─► Else: read_biguint_bits(fixed_bit_len) -> biguint_to_symbols() (left-pad with alphabet[0])
   │           ├─► Validate Trailing Padding: read_remaining_all_zero() must be true
   │           └─► Assemble and return normalized URL string
   │
@@ -781,7 +795,7 @@ User Input: Encoded Base85 Payload String S
 ## 5.3 Trace 3: Codebook Training & Building from URL Corpus (`urlz dict build`)
 
 ```
-User Invocation: `urlz dict build corpus.txt --out dictionaries/v1`
+User Invocation: `urlz dict build corpus.txt --out dictionaries/v2`
   │
   ├─► [1] main::run()
   │     └─► Command::Dict { command: DictCommand::Build { corpus, out } }
@@ -825,7 +839,7 @@ Attacker Input: Truncated / Bit-Flipped Payload String S
   ├─► [Check 2] Character Validation: Char not in Base85 -> Err(Error::UnsupportedCharacter)
   │
   ├─► [Check 3] Bitstream Header Checks:
-  │     ├─► Version != 1 -> Err(Error::UnsupportedVersion)
+  │     ├─► Version != 2 -> Err(Error::UnsupportedVersion)
   │     └─► DictSetID != 1 -> Err(Error::InvalidPayload("unknown dict set"))
   │
   ├─► [Check 4] Resource Bounds:
@@ -834,7 +848,7 @@ Attacker Input: Truncated / Bit-Flipped Payload String S
   │     └─► Symbol count > 4096 -> Err(Error::InvalidPayload("symbol count too large"))
   │
   ├─► [Check 5] Dictionary Range Check:
-  │     └─► Host Index >= 40 (and != 255) -> Err(Error::InvalidPayload) [No panic]
+  │     └─► Host Index out of bounds (>= 255 and != HOST_ESCAPE) -> Err(Error::InvalidPayload) [No panic]
   │
   ├─► [Check 6] Huffman Stream Integrity:
   │     ├─► Truncated bitstream -> Err(Error::HuffmanError)
@@ -866,17 +880,17 @@ Attacker Input: Truncated / Bit-Flipped Payload String S
 ### Macro-Benchmarks across Tranco Datasets:
 | Metric | Value |
 | :--- | :--- |
-| **Throughput** | **416,366 URLs/second** |
-| **Mean Latency** | **2.40 µs / URL** |
+| **Throughput** | **448,000–450,000+ URLs/second** |
+| **Mean Latency** | **2.22–2.23 µs / URL** |
 | **Encode Errors** | **0 (100% lossless fidelity)** |
-| **Average Compression** | **1.21× (17.5% wire size reduction)** |
+| **Average Compression** | **1.53×–1.55× (~35% wire size reduction)** |
 
 ### Per-URL Stateless Compression vs. General-Purpose Algorithms:
 When compressing individual URLs in isolation (for QR codes, BLE beacons, SMS, or cache payloads), general-purpose algorithms expand payload size due to header overhead and sliding-window startup costs:
 
 | Algorithm | Wire Format | Ratio (`src/enc`) on 200k URLs | Behavior on Short Strings |
 | :--- | :---: | :---: | :--- |
-| **`urlz`** | **Base85** | **1.212× (17.5% smaller)** | **Lossless Compression** |
+| **`urlz`** | **Base85** | **1.558× (35.8% smaller)** | **Lossless Compression** |
 | **Raw DEFLATE (Level 9)** | Base85 | 0.852× (17.4% larger) | Negative Compression (Expansion) |
 | **`zlib`** | Base85 | 0.795× (25.8% larger) | Negative Compression (Expansion) |
 | **`gzip`** | Base85 | 0.697× (43.5% larger) | Negative Compression (Expansion) |

@@ -18,8 +18,8 @@ use crate::error::Error;
 
 /// The encoding of a single URL segment.
 ///
-/// - `alphabet_id`: 4-bit alphabet id (0–7).
-/// - `value`: raw symbol bytes in that alphabet. For base alphabets (0–4) these are the segment's ASCII bytes; for raw-fallback (6) they are the literal UTF-8 bytes. The encoder converts them to a [`BigUint`] via [`value_to_biguint`].
+/// - `alphabet_id`: 3-bit alphabet id (0–7).
+/// - `value`: raw symbol bytes in that alphabet. For base alphabets (0–4) these are the segment's ASCII bytes; for raw-fallback (6) they are the literal UTF-8 bytes; for pure-percent-bytes (7) they are the decoded raw bytes of contiguous %XX sequences. The encoder converts them to a [`BigUint`] via [`value_to_biguint`].
 /// - `symbol_count`: number of symbols (bytes) in the segment. Leading `alphabet[0]` symbols are lost in the integer conversion, so the decoder uses this count to reconstruct the exact string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SegmentEncoding {
@@ -160,6 +160,69 @@ pub fn segment_to_string(enc: &SegmentEncoding) -> Result<String, Error> {
             ),
         }),
     }
+}
+
+/// Computes the exact bit length required to represent `symbol_count`
+/// symbols in `alphabet_id` without transmitting an explicit bit-length header.
+#[inline]
+pub fn fixed_bit_len(alphabet_id: u8, symbol_count: usize) -> u32 {
+    if symbol_count == 0 {
+        return 0;
+    }
+    match alphabet_id {
+        0 => ((symbol_count as f64) * 3.3219280948873626).ceil() as u32,
+        1 => ((symbol_count as f64) * 4.700439718141093).ceil() as u32,
+        2 => ((symbol_count as f64) * 5.169925001442312).ceil() as u32,
+        3 => ((symbol_count as f64) * 5.954196310386875).ceil() as u32,
+        4 => (symbol_count * 6) as u32,
+        _ => (symbol_count * 8) as u32,
+    }
+}
+
+/// Checks whether `s` consists entirely of contiguous `%XX` percent-escapes.
+#[inline]
+pub fn is_pure_percent(s: &str) -> bool {
+    let bytes = s.as_bytes();
+    if bytes.is_empty() || !bytes.len().is_multiple_of(3) {
+        return false;
+    }
+    bytes
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .all(|c| c[0] == b'%' && c[1].is_ascii_hexdigit() && c[2].is_ascii_hexdigit())
+}
+
+/// Decodes contiguous `%XX` percent-escapes into their underlying raw bytes.
+pub fn decode_pure_percent(s: &str) -> Vec<u8> {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len() / 3);
+    for chunk in bytes.as_chunks::<3>().0 {
+        let h1 = match chunk[1] {
+            b'0'..=b'9' => chunk[1] - b'0',
+            b'a'..=b'f' => chunk[1] - b'a' + 10,
+            b'A'..=b'F' => chunk[1] - b'A' + 10,
+            _ => 0,
+        };
+        let h2 = match chunk[2] {
+            b'0'..=b'9' => chunk[2] - b'0',
+            b'a'..=b'f' => chunk[2] - b'a' + 10,
+            b'A'..=b'F' => chunk[2] - b'A' + 10,
+            _ => 0,
+        };
+        out.push((h1 << 4) | h2);
+    }
+    out
+}
+
+/// Formats raw bytes back into normalized uppercase `%XX` percent-escapes.
+pub fn encode_pure_percent(bytes: &[u8]) -> String {
+    let mut s = String::with_capacity(bytes.len() * 3);
+    for &b in bytes {
+        use std::fmt::Write;
+        let _ = write!(s, "%{b:02X}");
+    }
+    s
 }
 
 #[cfg(test)]
@@ -309,5 +372,23 @@ mod tests {
     let enc = analyze_segment(&s);
     prop_assert_eq!(reconstruct_via_biguint(&enc), s);
     }
+    }
+
+    #[test]
+    fn test_pure_percent_roundtrip() {
+        let original = "%E4%B8%AD%E6%96%87";
+        assert!(is_pure_percent(original));
+        assert!(!is_pure_percent("hello"));
+        assert!(!is_pure_percent("%20world"));
+        let bytes = decode_pure_percent(original);
+        assert_eq!(encode_pure_percent(&bytes), original);
+    }
+
+    #[test]
+    fn test_fixed_bit_len_matches_capacity() {
+        assert_eq!(fixed_bit_len(0, 1), 4);
+        assert_eq!(fixed_bit_len(1, 1), 5);
+        assert_eq!(fixed_bit_len(1, 4), 19);
+        assert_eq!(fixed_bit_len(4, 2), 12);
     }
 }

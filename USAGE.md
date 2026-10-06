@@ -35,7 +35,7 @@ Add `urlz` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-urlz = "0.1.1"
+urlz = "0.2.0"
 ```
 
 Or using `cargo add`:
@@ -67,10 +67,10 @@ cargo install --path crates/urlz
 ```sh
 # Encode a URL to compact Base85
 $ urlz encode "https://github.com/rust-lang/rust"
-#`H(KM&4L`p!vEE0}0TnPfwO
+GI_(e2`l6P2q,*{C
 
 # Decode a payload back to the original URL
-$ urlz decode '#`H(KM&4L`p!vEE0}0TnPfwO'
+$ urlz decode 'GI_(e2`l6P2q,*{C'
 https://github.com/rust-lang/rust
 ```
 
@@ -82,7 +82,7 @@ use urlz::{decode, encode};
 fn main() -> Result<(), urlz::Error> {
     let url = "https://github.com/rust-lang/rust";
 
-    // Encode to a compact Base85 string (~1.38x compression)
+    // Encode to a compact Base85 string (~2.06x compression)
     let payload = encode(url)?;
     println!("Payload: {payload}");
 

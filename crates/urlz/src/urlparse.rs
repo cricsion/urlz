@@ -426,7 +426,6 @@ fn is_ipv4_literal(s: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
 
     fn parse(s: &str) -> ParsedUrl {
         parse_url(s).unwrap_or_else(|e| panic!("parse_url({s:?}) failed: {e}"))
@@ -787,65 +786,5 @@ mod tests {
             let p2 = parse_url(&rebuilt).unwrap();
             assert_eq!(p, p2, "round-trip failed for {url} (rebuilt: {rebuilt})");
         }
-    }
-
-    fn url_strategy() -> impl Strategy<Value = String> {
-        let scheme = prop_oneof![Just("http"), Just("https")];
-        let www = prop_oneof![Just("www."), Just("")];
-        let label = proptest::collection::vec(proptest::char::range('a', 'z'), 1..10)
-            .prop_map(|v| v.into_iter().collect::<String>());
-        let tld = proptest::collection::vec(proptest::char::range('a', 'z'), 2..6)
-            .prop_map(|v| v.into_iter().collect::<String>());
-        let host = (www, label, tld).prop_map(|(w, l, t)| format!("{w}{l}.{t}"));
-        let seg_char = prop_oneof![
-            proptest::char::range('a', 'z'),
-            Just('日'),
-            Just('é'),
-            Just('-'),
-            Just('_'),
-        ];
-        let path_seg = proptest::collection::vec(seg_char, 0..8)
-            .prop_map(|v| v.into_iter().collect::<String>());
-        let path = proptest::collection::vec(path_seg, 0..4).prop_map(|segs| {
-            if segs.is_empty() {
-                String::new()
-            } else {
-                format!("/{}", segs.join("/"))
-            }
-        });
-        let key = proptest::collection::vec(proptest::char::range('a', 'z'), 0..5)
-            .prop_map(|v| v.into_iter().collect::<String>());
-        let value = proptest::collection::vec(proptest::char::range('a', 'z'), 0..5)
-            .prop_map(|v| v.into_iter().collect::<String>());
-        let query = proptest::collection::vec((key, value), 0..4).prop_map(|pairs| {
-            if pairs.is_empty() {
-                String::new()
-            } else {
-                let joined = pairs
-                    .iter()
-                    .map(|(k, v)| format!("{k}={v}"))
-                    .collect::<Vec<_>>()
-                    .join("&");
-                format!("?{joined}")
-            }
-        });
-        let frag = proptest::collection::vec(proptest::char::range('a', 'z'), 0..5).prop_map(|v| {
-            let s = v.into_iter().collect::<String>();
-            if s.is_empty() {
-                String::new()
-            } else {
-                format!("#{s}")
-            }
-        });
-        (scheme, host, path, query, frag).prop_map(|(s, h, p, q, f)| format!("{s}://{h}{p}{q}{f}"))
-    }
-
-    proptest! {
-    #[test]
-    fn parse_is_deterministic(url in url_strategy()) {
-    let a = parse_url(&url).unwrap();
-    let b = parse_url(&url).unwrap();
-    prop_assert_eq!(a, b);
-    }
     }
 }

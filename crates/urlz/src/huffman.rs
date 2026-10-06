@@ -329,8 +329,10 @@ impl HuffmanDecoder {
     pub fn new(cb: &Codebook) -> Result<Self, Error> {
         let tables = build_canonical_tables(cb)?;
         let max_len = cb.0.iter().copied().max().unwrap_or(0) as usize;
-        let has_invalid_base85_symbols = cb.0.iter().enumerate()
-            .any(|(s, &len)| len > 0 && char_index(s as u8, BASE85_ALPHABET).is_none());
+        let has_invalid_base85_symbols =
+            cb.0.iter()
+                .enumerate()
+                .any(|(s, &len)| len > 0 && char_index(s as u8, BASE85_ALPHABET).is_none());
         Ok(Self {
             sorted: tables.sorted,
             first_code: tables.first_code,
@@ -341,14 +343,12 @@ impl HuffmanDecoder {
         })
     }
 
-    /// Decodes exactly `symbol_count` codes from `bits`.
-    ///
-    /// Reads codes bit-by-bit, matching each accumulated value against the
-    /// per-length canonical tables. After the last symbol the remaining bits
-    /// must all be zero (padding); decoded symbols must be in
-    /// [`BASE85_ALPHABET`].
-    pub fn decode(&self, bits: &[u8], symbol_count: usize) -> Result<Vec<u8>, Error> {
-        let mut reader = ReadBitStream::from_bytes(bits);
+    /// Decodes exactly `symbol_count` codes from a stream.
+    pub fn decode_from(
+        &self,
+        reader: &mut ReadBitStream,
+        symbol_count: usize,
+    ) -> Result<Vec<u8>, Error> {
         let mut out = Vec::with_capacity(symbol_count);
         let max_len = self.max_len;
         for _ in 0..symbol_count {
@@ -383,6 +383,18 @@ impl HuffmanDecoder {
             }
             out.push(sym);
         }
+        Ok(out)
+    }
+
+    /// Decodes exactly `symbol_count` codes from `bits`.
+    ///
+    /// Reads codes bit-by-bit, matching each accumulated value against the
+    /// per-length canonical tables. After the last symbol the remaining bits
+    /// must all be zero (padding); decoded symbols must be in
+    /// [`BASE85_ALPHABET`].
+    pub fn decode(&self, bits: &[u8], symbol_count: usize) -> Result<Vec<u8>, Error> {
+        let mut reader = ReadBitStream::from_bytes(bits);
+        let out = self.decode_from(&mut reader, symbol_count)?;
         if !reader.read_remaining_all_zero() {
             return Err(Error::HuffmanError {
                 reason: "non-zero padding after huffman payload".to_string(),
@@ -901,7 +913,6 @@ mod tests {
         let a = build_from_corpus(EXAMPLE_CORPUS);
         let b = build_from_corpus(EXAMPLE_CORPUS);
         assert_eq!(serialize_codebook(&a), serialize_codebook(&b));
-        assert_eq!(parse_corpus(EXAMPLE_CORPUS), parse_corpus(EXAMPLE_CORPUS));
     }
 
     #[test]

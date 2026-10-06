@@ -21,7 +21,7 @@ cargo install --path crates/urlz    # or from local checkout
 ### As a Rust Library Dependency
 ```toml
 [dependencies]
-urlz = "0.1.1"
+urlz = "0.2.0"
 ```
 
 ---
@@ -31,10 +31,10 @@ urlz = "0.1.1"
 ```sh
 # 1. Encode a URL to a compact Base85 string
 $ urlz encode "https://github.com/rust-lang/rust"
-#`H(KM&4L`p!vEE0}0TnPfwO
+GI_(e2`l6P2q,*{C
 
 # 2. Decode a payload back to the original URL
-$ urlz decode '#`H(KM&4L`p!vEE0}0TnPfwO'
+$ urlz decode 'GI_(e2`l6P2q,*{C'
 https://github.com/rust-lang/rust
 
 # 3. High-throughput parallel batch compression via shell pipelines
@@ -72,11 +72,11 @@ fn main() -> Result<(), urlz::Error> {
 
 | Original URL | Length | `urlz` Base85 | Ratio |
 |---|:---:|:---:|:---:|
-| `https://example.com/index.html` | 30 chars | **14 chars** | **2.14×** |
-| `https://example.com/search?q=rust&page=2&sort=desc` | 51 chars | **30 chars** | **1.70×** |
-| `https://www.google.com/search?q=hello+world` | 43 chars | **27 chars** | **1.59×** |
-| `https://example.com` | 19 chars | **12 chars** | **1.58×** |
-| `https://github.com/rust-lang/rust` | 33 chars | **24 chars** | **1.38×** |
+| `https://example.com/index.html` | 30 chars | **11 chars** | **2.73×** |
+| `https://example.com/search?q=rust&page=2&sort=desc` | 51 chars | **24 chars** | **2.13×** |
+| `https://github.com/rust-lang/rust` | 33 chars | **16 chars** | **2.06×** |
+| `https://example.com` | 19 chars | **11 chars** | **1.73×** |
+| `https://www.google.com/search?q=hello+world` | 43 chars | **25 chars** | **1.72×** |
 
 *Note: Encoded payloads are not guaranteed shorter on highly irregular or random strings; structured URLs benefit most.*
 
@@ -84,9 +84,9 @@ fn main() -> Result<(), urlz::Error> {
 
 ## Key Features
 
-- ⚡ **High Throughput:** Encodes over **415,000+ URLs/sec** with sub-2.5µs mean latency (tested on Apple M3 MacBook Air).
+- ⚡ **High Throughput:** Encodes over **450,000+ URLs/sec** with sub-2.25µs mean latency (tested on Apple M3 MacBook Air).
 - 🛡️ **Hostile Input Resilience:** Strict memory boundaries (64 KiB payload cap, 64 segments/region). Rejects invalid padding, varint overflows, and bad indices as typed errors — **never panics**.
-- 🗜️ **Adaptive Multi-Base & Huffman:** Automatically selects between 8 character sets (Base10, Base26, Base36, Base62, Base64url, Canonical Huffman, Raw UTF-8) to minimize wire size.
+- 🗜️ **Adaptive Multi-Base & Huffman:** Automatically selects between 8 character sets (Base10, Base26, Base36, Base62, Base64url, Canonical Huffman, Raw UTF-8, Percent-Encoded Bytes) to minimize wire size.
 - 🌐 **Stateless & Offline:** Zero centralized databases, zero lookups, and no network dependencies.
 
 ---

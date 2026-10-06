@@ -13,9 +13,9 @@ is elided, path/query segments are encoded in whichever of several alphabets is
 smallest, and a canonical Huffman code is applied per segment when it wins on
 wire size. The result is emitted as compact base85 text.
 
-**Not guaranteed shorter.** Some payloads exceed their source — deep paths and
-long query strings can expand slightly (e.g. `https://example.com/a/b/c/d/e`
-encodes to 30 chars vs 29). Structured URLs are where it pays off.
+**Not guaranteed shorter.** Some payloads can exceed their source — high-entropy
+or irregular raw byte sequences can expand slightly due to framing overhead.
+Structured URLs are where it pays off.
 
 ## Quick start
 
@@ -68,11 +68,11 @@ Measured with `cargo bench --quick`; full details and macro-benchmarks in [BENCH
 
 | URL | source | base85 | ratio |
 |---|---|---|---|
-| `https://example.com/index.html` | 30 | 14 | **2.14×** |
-| `https://www.google.com/search?q=hello+world` | 43 | 27 | **1.59×** |
-| `https://example.com` | 19 | 12 | **1.58×** |
-| `https://example.com/search?q=rust+url+compression&page=2&...` | 77 | 55 | **1.40×** |
-| `https://github.com/rust-lang/rust` | 33 | 24 | **1.38×** |
+| `https://example.com/index.html` | 30 | 11 | **2.73×** |
+| `https://github.com/rust-lang/rust` | 33 | 16 | **2.06×** |
+| `https://example.com` | 19 | 11 | **1.73×** |
+| `https://www.google.com/search?q=hello+world` | 43 | 25 | **1.72×** |
+| `https://example.com/search?q=rust+url+compression&page=2&...` | 77 | 50 | **1.54×** |
 
 ### Macro-Benchmarks (Tranco 1M and Top 10M Datasets)
 
@@ -83,15 +83,15 @@ Tested on an Apple M3 MacBook Air across 14 diverse web archetypes (UUIDs, Git h
 | **Unique Domains** | 889,388 | **8,743,106** |
 | **Total URLs Encoded** | 1,000,000 | **10,000,000** |
 | **Encode Errors** | **0 (100% lossless)** | **0 (100% lossless)** |
-| **Throughput** | **416,366 URLs/s** | **413,269 URLs/s** |
-| **Mean Latency** | **2.40 µs/URL** | **2.42 µs/URL** |
-| **P50 / P90 / P99 Latency** | **2 / 3 / 3 µs** | **2 / 3 / 3 µs** |
+| **Throughput** | **447,974 URLs/s** | **450,728 URLs/s** |
+| **Mean Latency** | **2.23 µs/URL** | **2.22 µs/URL** |
+| **P50 / P90 / P99 Latency** | **1 / 2 / 3 µs** | **1 / 2 / 3 µs** |
 | **Total Source Size** | 85.65 MB (85,651,178 chars) | **869.98 MB (869,977,173 chars)** |
-| **Total Encoded Size** | 70.66 MB (70,658,513 chars) | **719.52 MB (719,521,068 chars)** |
-| **Net Storage Saved** | **14.99 MB saved** | **150.46 MB saved** |
-| **Overall Compression Ratio** | **1.212× (17.5% smaller)** | **1.209× (17.3% smaller)** |
-| **Path / Media URLs** | **1.314× (23.9% smaller)** | **1.306× (23.5% smaller)** |
-| **Query-Heavy URLs** | **1.165× (14.2% smaller)** | **1.163× (14.0% smaller)** |
+| **Total Encoded Size** | 55.35 MB (55,348,350 chars) | **567.44 MB (567,443,631 chars)** |
+| **Net Storage Saved** | **30.30 MB saved** | **302.53 MB saved** |
+| **Overall Compression Ratio** | **1.547× (35.4% smaller)** | **1.533× (34.8% smaller)** |
+| **Path / Media URLs** | **1.573× (36.4% smaller)** | **1.552× (35.6% smaller)** |
+| **Query-Heavy URLs** | **1.534× (34.8% smaller)** | **1.524× (34.4% smaller)** |
 
 ## Robustness
 

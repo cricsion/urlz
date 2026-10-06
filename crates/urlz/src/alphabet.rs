@@ -20,7 +20,7 @@ pub const BASE85_ALPHABET: &[u8; 85] =
 /// One entry in the alphabet registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AlphabetInfo {
-    /// 4-bit alphabet id (0..=7).
+    /// 3-bit alphabet id (0..=7).
     pub id: u8,
     pub name: &'static str,
     /// The alphabet's symbol bytes. Empty for huffman-mode, raw-fallback,
@@ -34,7 +34,7 @@ pub struct AlphabetInfo {
 /// Entry 5 (huffman-mode) operates on [`BASE85_ALPHABET`] symbols but is
 /// Huffman-compressed rather than base-converted, so it carries no char slice
 /// here. Entry 6 (raw-fallback) covers all 256 byte values and entry 7
-/// (reserved) is unused.
+/// (pure-percent-bytes) encodes contiguous %XX escape sequences as raw bytes.
 pub const ALPHABETS: [AlphabetInfo; 8] = [
     AlphabetInfo {
         id: 0,
@@ -73,7 +73,7 @@ pub const ALPHABETS: [AlphabetInfo; 8] = [
     },
     AlphabetInfo {
         id: 7,
-        name: "reserved",
+        name: "pure-percent-bytes",
         chars: &[],
     },
 ];
@@ -157,10 +157,8 @@ pub fn from_base(s: &str, alphabet: &[u8]) -> Result<BigUint, Error> {
         };
         digits.push(idx.ok_or(Error::UnsupportedCharacter(c))? as u8);
     }
-    BigUint::from_radix_be(&digits, alphabet.len() as u32).ok_or_else(|| {
-        Error::InvalidPayload {
-            reason: "alphabet digit is out of range".to_string(),
-        }
+    BigUint::from_radix_be(&digits, alphabet.len() as u32).ok_or_else(|| Error::InvalidPayload {
+        reason: "alphabet digit is out of range".to_string(),
     })
 }
 
