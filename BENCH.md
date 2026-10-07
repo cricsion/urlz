@@ -105,7 +105,7 @@ The transition from wire format v1 to v2 eliminated per-segment `value_bit_lengt
 | `https://example.com:8080/path` | 29 | 31 chars (0.94× expansion) | **16 chars** (via port mode 0) | **1.812× (45% smaller)** |
 | `https://example.com` | 19 | 12 chars (1.58×) | **11 chars** | **1.727× (42% smaller)** |
 | `https://www.google.com/search?q=hello+world` | 43 | 27 chars (1.59×) | **25 chars** | **1.720× (42% smaller)** |
-| `https://example.com/search?q=rust+url+compression...` | 77 | 55 chars (1.40×) | **50 chars** | **1.540× (35% smaller)** |
+| `https://example.com/search?q=rust+url+compression&page=2&sort=desc&filter=all` | 77 | 55 chars (1.40×) | **50 chars** | **1.540× (35% smaller)** |
 | `https://example.com/a/b/c/d/e` | 29 | 31 chars (0.94× expansion) | **21 chars** (no longer expands) | **1.381× (28% smaller)** |
 | `https://example-site.com/x` | 26 | 24 chars (1.08×) | **20 chars** | **1.300× (23% smaller)** |
 

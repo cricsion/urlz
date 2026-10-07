@@ -17,7 +17,7 @@
 //!
 //! - **Scheme:** only `http`/`https` are accepted; any other scheme or a missing scheme is an error.
 //! - **Userinfo** (`user:pass@host`): rejected with a clear error for deterministic behavior.
-//! - **IPv6 literals** (`[::1]`): rejected with a clear error for v1.
+//! - **IPv6 literals** (`[::1]`): rejected with a clear error.
 //! - **Ports:** default ports (80/443) are dropped silently. A non-default port is kept as a literal suffix on the host string.
 //! - **Host/TLD split:** split at the last dot. IPv4 literals are exempt and keep the whole string in `host` with an empty `tld`.
 //! - **Path segments:** the leading `/` is structural and produces no segment; a trailing `/` produces a final empty segment.
@@ -185,7 +185,7 @@ pub fn parse_url(s: &str) -> Result<ParsedUrl, Error> {
     }
     if authority.starts_with('[') {
         return Err(Error::InvalidUrl {
-            reason: "IPv6 literals are not supported in v1".to_string(),
+            reason: "IPv6 literals are not supported".to_string(),
         });
     }
 

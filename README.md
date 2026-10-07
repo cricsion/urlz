@@ -19,7 +19,7 @@ Structured URLs are where it pays off.
 
 ## Quick start
 
-Requires Rust 1.91+ (edition 2024).
+Requires Rust 1.98+ (edition 2024).
 
 ```sh
 cargo install urlz                   # from crates.io
@@ -30,9 +30,9 @@ Encode and decode:
 
 ```sh
 $ urlz encode https://example.com/index.html
-<base85 payload>
+HOJfBHs-|5:
 
-$ urlz decode <payload>
+$ urlz decode 'HOJfBHs-|5:'
 https://example.com/index.html
 ```
 
@@ -50,10 +50,12 @@ The pipeline (`crates/urlz/src`):
 1. **Parse** (`urlparse`) — split a URL into scheme flags, host/TLD, path
    segments, key/value query pairs, fragments, and `index.*` suffixes.
 2. **Segment** (`segment`) — choose an encoding per segment: dictionary hit,
-   one of eight fixed alphabets, or Huffman mode — whichever produces fewer
-   bits including varint overhead.
-3. **Huffman** (`huffman`, `dict`) — canonical codes built from a URL corpus;
-   codebooks are serialized alongside the payload contract.
+   one of eight segment modes (five radix alphabets, Huffman, raw bytes, or
+   percent-encoded bytes) — whichever produces fewer bits including varint overhead.
+3. **Huffman** (`huffman`, `dict`) — URL payloads identify the dictionary set
+   with a header field and use the default codebook embedded in the binary.
+   `urlz dict build` writes a separate codebook file; URL encode/decode do not
+   load custom codebooks.
 4. **Bitstream** (`bitstream`) — MSB-first bit writer/reader with varints;
    reads never panic on truncated input.
 5. **Frame** (`alphabet`) — serialize the whole payload as one big integer in
@@ -72,7 +74,7 @@ Measured with `cargo bench --quick`; full details and macro-benchmarks in [BENCH
 | `https://github.com/rust-lang/rust` | 33 | 16 | **2.06×** |
 | `https://example.com` | 19 | 11 | **1.73×** |
 | `https://www.google.com/search?q=hello+world` | 43 | 25 | **1.72×** |
-| `https://example.com/search?q=rust+url+compression&page=2&...` | 77 | 50 | **1.54×** |
+| `https://example.com/search?q=rust+url+compression&page=2&sort=desc&filter=all` | 77 | 50 | **1.54×** |
 
 ### Macro-Benchmarks (Tranco 1M and Top 10M Datasets)
 
@@ -107,9 +109,12 @@ adversarial benchmark payloads (64KB garbage, invalid alphabets) — see
 ```rust
 use urlz::{decode, encode};
 
-let payload = encode("https://github.com/rust-lang/rust")?;
-let url = decode(&payload)?;
-assert_eq!(url, "https://github.com/rust-lang/rust");
+fn main() -> Result<(), urlz::Error> {
+    let payload = encode("https://github.com/rust-lang/rust")?;
+    let url = decode(&payload)?;
+    assert_eq!(url, "https://github.com/rust-lang/rust");
+    Ok(())
+}
 ```
 
 

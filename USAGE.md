@@ -261,7 +261,10 @@ urlz dict build access_urls.txt --out ./dictionaries
 
 Unlike traditional database-backed shorteners (which require PostgreSQL/Redis lookups), `urlz` enables **completely stateless URL redirection**:
 
+This example wraps the Base85 payload in unpadded Base64URL before putting it in a path. Add the `base64` crate to the service dependencies.
+
 ```rust
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use axum::{
     extract::Path,
     http::StatusCode,
@@ -283,13 +286,16 @@ struct ShrinkResponse {
 }
 
 async fn shrink_handler(Json(payload): Json<ShrinkRequest>) -> Result<Json<ShrinkResponse>, StatusCode> {
-    let token = urlz::encode(&payload.url).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let payload = urlz::encode(&payload.url).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let token = URL_SAFE_NO_PAD.encode(payload);
     let short_url = format!("https://s.example.com/r/{}", token);
     Ok(Json(ShrinkResponse { token, short_url }))
 }
 
 async fn redirect_handler(Path(token): Path<String>) -> Result<Redirect, StatusCode> {
-    let destination = urlz::decode(&token).map_err(|_| StatusCode::NOT_FOUND)?;
+    let payload = URL_SAFE_NO_PAD.decode(token).map_err(|_| StatusCode::NOT_FOUND)?;
+    let payload = String::from_utf8(payload).map_err(|_| StatusCode::NOT_FOUND)?;
+    let destination = urlz::decode(&payload).map_err(|_| StatusCode::NOT_FOUND)?;
     Ok(Redirect::temporary(&destination))
 }
 
@@ -302,14 +308,21 @@ pub fn app() -> Router {
 
 ### Recipe 2: IoT / BLE Advertisement Payload
 
-Broadcast dense URLs in BLE advertising packets (limited to 31 bytes):
+Broadcast dense URLs in BLE advertising packets (limited to 31 bytes). Pass the
+16-bit Service UUID as its two little-endian bytes:
 
 ```rust
 use urlz::encode_to_bits;
 
-fn make_ble_beacon_payload(target_url: &str) -> Result<[u8; 31], &'static str> {
-    let bits = encode_to_bits(target_url).map_err(|_| "encode failed")?;
-    if bits.len() > 28 {
+fn make_ble_beacon_payload(
+    target_url: &str,
+    service_uuid_le: [u8; 2],
+) -> Result<[u8; 31], &'static str> {
+    let bitstream = encode_to_bits(target_url).map_err(|_| "encode failed")?;
+    // 31 bytes total minus 3 bytes for Flags and 4 bytes for the
+    // Service Data length, type, and 16-bit UUID.
+    const MAX_BITSTREAM_BYTES: usize = 31 - 3 - 4;
+    if bitstream.len() > MAX_BITSTREAM_BYTES {
         return Err("URL bitstream exceeds BLE advertisement capacity");
     }
 
@@ -317,9 +330,10 @@ fn make_ble_beacon_payload(target_url: &str) -> Result<[u8; 31], &'static str> {
     packet[0] = 0x02; // Flags length
     packet[1] = 0x01; // Flags data type
     packet[2] = 0x06; // General Discoverable Mode
-    packet[3] = (bits.len() + 1) as u8; // Custom Service Data length
+    packet[3] = (bitstream.len() + 3) as u8; // Type + UUID + bitstream
     packet[4] = 0x16; // Service Data 16-bit UUID
-    packet[5..5 + bits.len()].copy_from_slice(&bits);
+    packet[5..7].copy_from_slice(&service_uuid_le);
+    packet[7..7 + bitstream.len()].copy_from_slice(&bitstream);
 
     Ok(packet)
 }

@@ -20,7 +20,7 @@
    - 4.1 `alphabet.rs` — Compression Alphabets, Registry, $O(1)$ Inverses & Radix Math
    - 4.2 `bitstream.rs` — Bit-Level Stream Reader, Writer & Varint Codec
    - 4.3 `dict.rs` — Static TLD, Host, Path & Query Codebooks
-   - 4.4 `urlparse.rs` — RFC 3986 URL Parser, Semantic Slicer & Normalizer
+   - 4.4 `urlparse.rs` — HTTP(S) URL Parser, Semantic Slicer & Normalizer
    - 4.5 `segment.rs` — Segment Analyzer & Multi-Base Integer Packing
    - 4.6 `huffman.rs` — Canonical Huffman Codebook & Dynamic Bitstream Engine
    - 4.7 `encode.rs` — Bitstream Serializer & Base85 Wire Formatter
@@ -138,7 +138,7 @@ Standard URLs are structurally redundant and verbosely formatted:
       |  |                                                                         |  |
       |  |  +------------------+  +-------------------+  +----------------------+  |  |
       |  |  |   urlparse.rs    |  |    segment.rs     |  |      huffman.rs      |  |  |
-      |  |  | RFC 3986 Parser  |  | Alphabet Selector |  | Canonical Huffman    |  |  |
+      |  |  | HTTP(S) Parser  |  | Alphabet Selector |  | Canonical Huffman    |  |  |
       |  |  +--------┬---------+  +---------┬---------+  +----------┬-----------+  |  |
       |  |           │                      │                       │              |  |
       |  |           ▼                      ▼                       ▼              |  |
@@ -208,8 +208,8 @@ url_compressor/
 │           ├── error.rs                       # Strongly-typed error enum definitions
 │           ├── alphabet.rs                    # Base85 charset, O(1) inverse tables, Base-N radix math
 │           ├── bitstream.rs                   # WriteBitStream, ReadBitStream, & Varint codec
-│           ├── dict.rs                        # Static TLDs (32), Hosts (40), Tokens (64), Query Keys (64)
-│           ├── urlparse.rs                    # RFC 3986 URL parsing & semantic decomposition
+│           ├── dict.rs                        # Static TLDs (32), Hosts (255), Path Tokens (128), Query Keys (64)
+│           ├── urlparse.rs                    # Supported HTTP(S) URL parsing & semantic decomposition
 │           ├── segment.rs                     # Alphabet selection & segment integer packing
 │           ├── huffman.rs                     # Canonical Huffman coding & codebook builder
 │           ├── encode.rs                      # Primary encoder (URL -> Bits -> Base85)
@@ -436,10 +436,10 @@ The canonical, immutable string arrays are defined in [`crates/urlz/src/dict.rs`
 
 ---
 
-## 4.4 `urlparse.rs` — RFC 3986 URL Parser, Semantic Slicer & Normalizer
+## 4.4 `urlparse.rs` — HTTP(S) URL Parser, Semantic Slicer & Normalizer
 
 ### Purpose & Responsibilities
-The `urlparse.rs` module parses arbitrary raw URL strings into structured components without data loss. It normalizes case, cleans up default ports, preserves structural empty segments, and extracts compression hints.
+The `urlparse.rs` module parses a supported subset of HTTP(S) URLs into structured components. It lowercases the scheme and host, removes default ports, normalizes percent-escape hex digits, preserves structural empty segments, and extracts compression hints. It rejects other schemes, userinfo, and IPv6 literals. Decoding reconstructs the normalized URL, not necessarily the exact input spelling.
 
 ### Key Types & Data Structures
 
@@ -503,7 +503,7 @@ The `segment.rs` module inspects string tokens from the path, query, fragment, o
                                                        │ No
                                                        ▼
                                              ┌───────────────────┐
-                                             │  Check Base64url  │── Contains _ - ? ─► alphabet_id = 4
+                                             │  Check Base64url  │── Contains _ or - ─► alphabet_id = 4
                                              └─────────┬─────────┘
                                                        │ No
                                                        ▼
@@ -894,5 +894,3 @@ When compressing individual URLs in isolation (for QR codes, BLE beacons, SMS, o
 | **Raw DEFLATE (Level 9)** | Base85 | 0.852× (17.4% larger) | Negative Compression (Expansion) |
 | **`zlib`** | Base85 | 0.795× (25.8% larger) | Negative Compression (Expansion) |
 | **`gzip`** | Base85 | 0.697× (43.5% larger) | Negative Compression (Expansion) |
-
-
